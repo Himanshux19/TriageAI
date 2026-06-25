@@ -1,0 +1,29 @@
+# TriageAI - Git Ignore Configuration
+
+# Environment configuration (secrets & keys)
+**/src/main/resources/.env
+**/.env
+.env
+
+# Maven build outputs
+**/target/
+target/
+
+# Node/Vite dependencies and builds
+**/node_modules/
+node_modules/
+**/dist/
+dist/
+
+# Uploads & generated files
+**/uploads/
+uploads/
+
+# IDE / workspace configurations
+.idea/
+*.iml
+.vscode/
+
+# OS metadata files
+.DS_Store
+Thumbs.db
