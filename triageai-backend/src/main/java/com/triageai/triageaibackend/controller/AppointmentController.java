@@ -19,8 +19,10 @@ import java.util.stream.Collectors;
 @RequestMapping("/api/appointment")
 public class AppointmentController {
 
-    @Autowired private AppointmentService appointmentService;
-    @Autowired private AIService aiService;
+    @Autowired
+    private AppointmentService appointmentService;
+    @Autowired
+    private AIService aiService;
 
     @PostMapping("/book")
     public ResponseEntity<AppointmentResponse> book(@RequestBody BookAppointmentRequest req) {
@@ -60,15 +62,15 @@ public class AppointmentController {
     @PostMapping("/transcribe")
     public ResponseEntity<String> transcribe(@RequestBody Map<String, String> payload) {
         String audioBase64 = payload.get("audio");
-        String mimeType    = payload.getOrDefault("mimeType", "audio/webm");
+        String mimeType = payload.getOrDefault("mimeType", "audio/webm");
         if (audioBase64 == null || audioBase64.isBlank())
             return ResponseEntity.badRequest().body("No audio data provided.");
         try {
             byte[] audioBytes = Base64.getDecoder().decode(audioBase64);
             String ext = mimeType.contains("ogg") ? "audio.ogg"
-                       : mimeType.contains("wav") ? "audio.wav"
-                       : mimeType.contains("mp4") ? "audio.mp4"
-                       : "audio.webm";
+                    : mimeType.contains("wav") ? "audio.wav"
+                            : mimeType.contains("mp4") ? "audio.mp4"
+                                    : "audio.webm";
             String transcript = aiService.transcribeVoice(audioBytes, ext);
             return ResponseEntity.ok(transcript);
         } catch (Exception e) {

@@ -17,8 +17,10 @@ import com.triageai.triageaibackend.entity.AppointmentEntity;
 @RequestMapping("/api/clinic")
 public class ClinicController {
 
-    @Autowired private ClinicService clinicService;
-    @Autowired private ClinicDashboardService dashboardService;
+    @Autowired
+    private ClinicService clinicService;
+    @Autowired
+    private ClinicDashboardService dashboardService;
 
     @PostMapping("/register")
     public ResponseEntity<String> register(@RequestBody ClinicRegisterRequest req) {
@@ -32,7 +34,8 @@ public class ClinicController {
     }
 
     @PutMapping("/profile")
-    public ResponseEntity<ClinicProfileResponse> updateProfile(Authentication auth, @RequestBody UpdateClinicRequest req) {
+    public ResponseEntity<ClinicProfileResponse> updateProfile(Authentication auth,
+            @RequestBody UpdateClinicRequest req) {
         return ResponseEntity.ok(clinicService.updateProfile(auth.getName(), req));
     }
 
@@ -53,10 +56,12 @@ public class ClinicController {
         return ResponseEntity.ok(clinicService.generateQr(auth.getName()));
     }
 
-    @Autowired private com.triageai.triageaibackend.repository.AppointmentRepository appointmentRepo;
+    @Autowired
+    private com.triageai.triageaibackend.repository.AppointmentRepository appointmentRepo;
 
     @GetMapping("/export-patients")
-    public void exportPatients(Authentication auth, jakarta.servlet.http.HttpServletResponse response) throws Exception {
+    public void exportPatients(Authentication auth, jakarta.servlet.http.HttpServletResponse response)
+            throws Exception {
         ClinicEntity clinic = clinicService.getClinicEntity(auth.getName());
         List<AppointmentEntity> appointments = appointmentRepo.findAll().stream()
                 .filter(a -> a.getClinic().getClinicId().equals(clinic.getClinicId()))
@@ -64,10 +69,12 @@ public class ClinicController {
                 .collect(Collectors.toList());
 
         response.setContentType("text/csv");
-        response.setHeader("Content-Disposition", "attachment; filename=\"patients_report_" + clinic.getClinicId() + ".csv\"");
+        response.setHeader("Content-Disposition",
+                "attachment; filename=\"patients_report_" + clinic.getClinicId() + ".csv\"");
 
         java.io.PrintWriter writer = response.getWriter();
-        writer.println("Appointment ID,Token,Patient Name,Age,Gender,Symptoms,AI Diagnosis,Severity,Risk Score,Priority Score,Status,Booking Time");
+        writer.println(
+                "Appointment ID,Token,Patient Name,Age,Gender,Symptoms,AI Diagnosis,Severity,Risk Score,Priority Score,Status,Booking Time");
 
         for (AppointmentEntity a : appointments) {
             writer.printf("%d,%s,\"%s\",%d,%s,\"%s\",\"%s\",%s,%.1f,%.1f,%s,%s\n",
@@ -82,13 +89,13 @@ public class ClinicController {
                     a.getRiskScore(),
                     a.getPriorityScore(),
                     a.getStatus(),
-                    a.getBookingTime() != null ? a.getBookingTime().toString() : ""
-            );
+                    a.getBookingTime() != null ? a.getBookingTime().toString() : "");
         }
         writer.flush();
     }
 
-    @Autowired private com.triageai.triageaibackend.service.AppointmentService appointmentService;
+    @Autowired
+    private com.triageai.triageaibackend.service.AppointmentService appointmentService;
 
     @GetMapping("/history")
     public ResponseEntity<List<AppointmentResponse>> getHistory(Authentication auth) {

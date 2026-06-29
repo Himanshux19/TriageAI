@@ -16,15 +16,24 @@ import java.util.stream.Collectors;
 @Service
 public class AppointmentService {
 
-    @Autowired private AppointmentRepository appointmentRepo;
-    @Autowired private ClinicRepository clinicRepo;
-    @Autowired private DoctorRepository doctorRepo;
-    @Autowired private QueueEntryRepository queueRepo;
-    @Autowired private ICDCodeRepository icdRepo;
-    @Autowired private RiskAssessmentRepository riskRepo;
-    @Autowired private AIService aiService;
-    @Autowired private QueueService queueService;
-    @Autowired private NotificationService notificationService;
+    @Autowired
+    private AppointmentRepository appointmentRepo;
+    @Autowired
+    private ClinicRepository clinicRepo;
+    @Autowired
+    private DoctorRepository doctorRepo;
+    @Autowired
+    private QueueEntryRepository queueRepo;
+    @Autowired
+    private ICDCodeRepository icdRepo;
+    @Autowired
+    private RiskAssessmentRepository riskRepo;
+    @Autowired
+    private AIService aiService;
+    @Autowired
+    private QueueService queueService;
+    @Autowired
+    private NotificationService notificationService;
 
     @Transactional
     public AppointmentResponse bookAppointment(BookAppointmentRequest req) {
@@ -41,15 +50,15 @@ public class AppointmentService {
         if (doctor == null) {
             doctor = assignBestDoctor(clinic);
         }
-        if (doctor == null) throw new RuntimeException("No available doctors at this clinic.");
+        if (doctor == null)
+            throw new RuntimeException("No available doctors at this clinic.");
 
         // AI triage
         AIService.TriageResult triage = aiService.evaluateSymptoms(
                 req.getSymptoms(),
                 req.getVoiceTranscript(),
                 req.getDiseaseDescription(),
-                req.getAge() != null ? req.getAge() : 30
-        );
+                req.getAge() != null ? req.getAge() : 30);
 
         // Build appointment
         AppointmentEntity appt = new AppointmentEntity();
@@ -111,13 +120,17 @@ public class AppointmentService {
 
         // Update queue entry with token
         QueueEntryEntity qe = queueRepo.findByAppointment(saved).orElse(null);
-        if (qe != null) { qe.setTokenNumber(token); queueRepo.save(qe); }
+        if (qe != null) {
+            qe.setTokenNumber(token);
+            queueRepo.save(qe);
+        }
 
         double waitTime = queueService.estimateWaitTime(clinic, position);
 
         // Notify
         if (req.getEmail() != null && !req.getEmail().isBlank()) {
-            notificationService.sendBookingConfirmation(saved, token, position, (int) waitTime, triage.getSeverityLevel(), triage.getAiDiagnosis());
+            notificationService.sendBookingConfirmation(saved, token, position, (int) waitTime,
+                    triage.getSeverityLevel(), triage.getAiDiagnosis());
         }
 
         return buildResponse(saved, position, (int) waitTime, triage);
@@ -150,14 +163,20 @@ public class AppointmentService {
             if (appt.getLastLocationUpdate().isBefore(threshold)) {
                 appt.setStatus("ABSENT");
                 QueueEntryEntity qe = queueRepo.findByAppointment(appt).orElse(null);
-                if (qe != null) { qe.setStatus("ABSENT"); queueRepo.save(qe); }
+                if (qe != null) {
+                    qe.setStatus("ABSENT");
+                    queueRepo.save(qe);
+                }
             }
         }
         appointmentRepo.save(appt);
 
         // Recompute queue
         QueueEntryEntity qe = queueRepo.findByAppointment(appt).orElse(null);
-        if (qe != null) { qe.setGeofenceStatus(status); queueRepo.save(qe); }
+        if (qe != null) {
+            qe.setGeofenceStatus(status);
+            queueRepo.save(qe);
+        }
         queueService.recomputeQueue(appt.getClinic());
     }
 
@@ -172,17 +191,19 @@ public class AppointmentService {
                 .stream()
                 .filter(d -> "AVAILABLE".equals(d.getAvailabilityStatus()))
                 .collect(Collectors.toList());
-        if (available.isEmpty()) return null;
+        if (available.isEmpty())
+            return null;
         // Pick doctor with fewest active queue entries
         return available.stream()
-                .min(Comparator.comparingInt(d ->
-                        queueRepo.countActiveByDoctor(d.getDoctorId())))
+                .min(Comparator.comparingInt(d -> queueRepo.countActiveByDoctor(d.getDoctorId())))
                 .orElse(available.get(0));
     }
 
     private String determineGeofenceStatus(Double lat, Double lng, ClinicEntity clinic) {
-        if (lat == null || lng == null) return "UNKNOWN";
-        if (clinic.getLatitude() == null || clinic.getLongitude() == null) return "ARRIVED";
+        if (lat == null || lng == null)
+            return "UNKNOWN";
+        if (clinic.getLatitude() == null || clinic.getLongitude() == null)
+            return "ARRIVED";
         double dist = haversine(lat, lng, clinic.getLatitude(), clinic.getLongitude());
         double threshold = clinic.getThresholdDistance() != null ? clinic.getThresholdDistance() : 500;
         return dist <= threshold ? "ARRIVED" : "OUTSIDE_RADIUS";
@@ -192,10 +213,10 @@ public class AppointmentService {
         final double R = 6371000;
         double dLat = Math.toRadians(lat2 - lat1);
         double dLng = Math.toRadians(lng2 - lng1);
-        double a = Math.sin(dLat/2)*Math.sin(dLat/2)
-                 + Math.cos(Math.toRadians(lat1))*Math.cos(Math.toRadians(lat2))
-                 * Math.sin(dLng/2)*Math.sin(dLng/2);
-        return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+        double a = Math.sin(dLat / 2) * Math.sin(dLat / 2)
+                + Math.cos(Math.toRadians(lat1)) * Math.cos(Math.toRadians(lat2))
+                        * Math.sin(dLng / 2) * Math.sin(dLng / 2);
+        return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
     }
 
     private String generateToken(Long id) {
@@ -228,8 +249,11 @@ public class AppointmentService {
         r.setEstimatedWaitTime(wait);
         r.setDoctorName(appt.getDoctor() != null ? appt.getDoctor().getName() : null);
         r.setDoctorId(appt.getDoctor() != null ? appt.getDoctor().getDoctorId() : null);
-        r.setBookingTime(appt.getBookingTime() != null ? appt.getBookingTime().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME) : null);
-        r.setIcdCodes(codes.stream().map(c -> Map.of("code", c.getCode(), "description", c.getDescription())).collect(Collectors.toList()));
+        r.setBookingTime(
+                appt.getBookingTime() != null ? appt.getBookingTime().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME)
+                        : null);
+        r.setIcdCodes(codes.stream().map(c -> Map.of("code", c.getCode(), "description", c.getDescription()))
+                .collect(Collectors.toList()));
         return r;
     }
 
@@ -239,7 +263,8 @@ public class AppointmentService {
                 .map(c -> new AIService.ICDMapping(c.getCode(), c.getDescription()))
                 .collect(Collectors.toList());
         List<String> syms = a.getExtractedSymptoms() != null
-                ? Arrays.asList(a.getExtractedSymptoms().split(",\\s*")) : List.of();
+                ? Arrays.asList(a.getExtractedSymptoms().split(",\\s*"))
+                : List.of();
         return new AIService.TriageResult(
                 a.getDiseaseScore(), a.getRiskScore(), a.getSeverityScore(), a.getPriorityScore(),
                 a.getSeverityLevel(), syms, mappings, a.getAiDiagnosis(),
@@ -282,8 +307,10 @@ public class AppointmentService {
         r.setGeofenceStatus(a.getGeofenceStatus());
         r.setDoctorName(a.getDoctor() != null ? a.getDoctor().getName() : null);
         r.setDoctorId(a.getDoctor() != null ? a.getDoctor().getDoctorId() : null);
-        r.setBookingTime(a.getBookingTime() != null ? a.getBookingTime().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME) : null);
-        r.setIcdCodes(codes.stream().map(c -> Map.of("code", c.getCode(), "description", c.getDescription())).collect(Collectors.toList()));
+        r.setBookingTime(
+                a.getBookingTime() != null ? a.getBookingTime().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME) : null);
+        r.setIcdCodes(codes.stream().map(c -> Map.of("code", c.getCode(), "description", c.getDescription()))
+                .collect(Collectors.toList()));
         return r;
     }
 }

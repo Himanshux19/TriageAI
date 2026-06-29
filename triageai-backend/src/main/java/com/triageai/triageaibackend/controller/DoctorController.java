@@ -16,8 +16,10 @@ import java.util.stream.Collectors;
 @RequestMapping("/api/doctor")
 public class DoctorController {
 
-    @Autowired private DoctorService doctorService;
-    @Autowired private QueueService queueService;
+    @Autowired
+    private DoctorService doctorService;
+    @Autowired
+    private QueueService queueService;
 
     @PostMapping("/register")
     public ResponseEntity<DoctorResponse> register(@RequestBody DoctorRegisterRequest req) {
@@ -32,7 +34,8 @@ public class DoctorController {
     }
 
     @PutMapping("/profile")
-    public ResponseEntity<DoctorResponse> updateProfile(Authentication auth, @RequestBody DoctorProfileUpdateRequest req) {
+    public ResponseEntity<DoctorResponse> updateProfile(Authentication auth,
+            @RequestBody DoctorProfileUpdateRequest req) {
         DoctorEntity d = doctorService.updateProfile(auth.getName(), req);
         return ResponseEntity.ok(toResponse(d));
     }
@@ -78,7 +81,8 @@ public class DoctorController {
     }
 
     @PutMapping("/{doctorId}/edit")
-    public ResponseEntity<DoctorResponse> editDoctor(@PathVariable String doctorId, @RequestBody DoctorRegisterRequest req) {
+    public ResponseEntity<DoctorResponse> editDoctor(@PathVariable String doctorId,
+            @RequestBody DoctorRegisterRequest req) {
         DoctorEntity d = doctorService.editDoctor(doctorId, req);
         return ResponseEntity.ok(toResponse(d));
     }
@@ -102,7 +106,8 @@ public class DoctorController {
         return r;
     }
 
-    @Autowired private com.triageai.triageaibackend.service.AppointmentService appointmentService;
+    @Autowired
+    private com.triageai.triageaibackend.service.AppointmentService appointmentService;
 
     @GetMapping("/history")
     public ResponseEntity<List<AppointmentResponse>> getHistory(Authentication auth) {

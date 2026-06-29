@@ -32,9 +32,10 @@ public class EmailService {
     public void sendPasswordResetEmail(String to, String resetLink, String name) {
         String subject = "TriageAI – Password Reset Request";
         String body = String.format(
-            "Hello %s,\n\nA password reset was requested.\n\n" +
-            "Click the link to reset: %s\n\nThis link expires in 1 hour.\n\n" +
-            "If you did not request this, ignore this email.\n\nTriageAI Team", name, resetLink);
+                "Hello %s,\n\nA password reset was requested.\n\n" +
+                        "Click the link to reset: %s\n\nThis link expires in 1 hour.\n\n" +
+                        "If you did not request this, ignore this email.\n\nTriageAI Team",
+                name, resetLink);
         sendEmail(to, subject, body);
     }
 }

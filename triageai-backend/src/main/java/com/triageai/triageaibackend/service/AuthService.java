@@ -17,17 +17,23 @@ import java.util.UUID;
 @Service
 public class AuthService {
 
-    @Autowired private ClinicRepository clinicRepo;
-    @Autowired private DoctorRepository doctorRepo;
-    @Autowired private JwtService jwtService;
-    @Autowired private PasswordEncoder passwordEncoder;
-    @Autowired private EmailService emailService;
+    @Autowired
+    private ClinicRepository clinicRepo;
+    @Autowired
+    private DoctorRepository doctorRepo;
+    @Autowired
+    private JwtService jwtService;
+    @Autowired
+    private PasswordEncoder passwordEncoder;
+    @Autowired
+    private EmailService emailService;
 
     private static final Map<String, TokenInfo> resetTokens = new ConcurrentHashMap<>();
 
     private static class TokenInfo {
         String identifier;
         String role;
+
         TokenInfo(String identifier, String role) {
             this.identifier = identifier;
             this.role = role;

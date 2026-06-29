@@ -14,10 +14,14 @@ import java.util.stream.Collectors;
 @Service
 public class QueueService {
 
-    @Autowired private QueueEntryRepository queueRepo;
-    @Autowired private AppointmentRepository appointmentRepo;
-    @Autowired private QueueHistoryRepository historyRepo;
-    @Autowired private ClinicRepository clinicRepo;
+    @Autowired
+    private QueueEntryRepository queueRepo;
+    @Autowired
+    private AppointmentRepository appointmentRepo;
+    @Autowired
+    private QueueHistoryRepository historyRepo;
+    @Autowired
+    private ClinicRepository clinicRepo;
 
     private static final double AVG_CONSULTATION_MINUTES = 8.0;
 
@@ -69,7 +73,8 @@ public class QueueService {
 
     // ── Estimate wait time ───────────────────────────────────
     public double estimateWaitTime(ClinicEntity clinic, int position) {
-        if (position <= 0) return 0;
+        if (position <= 0)
+            return 0;
         return Math.max(0, (position - 1)) * AVG_CONSULTATION_MINUTES;
     }
 
@@ -97,13 +102,15 @@ public class QueueService {
     @Transactional
     public QueueEntryResponse callNext(String doctorId) {
         List<QueueEntryEntity> waiting = queueRepo
-                .findByDoctorDoctorIdAndStatusNotIn(doctorId, List.of("COMPLETED", "ABSENT", "CANCELLED", "IN_CONSULTATION"))
+                .findByDoctorDoctorIdAndStatusNotIn(doctorId,
+                        List.of("COMPLETED", "ABSENT", "CANCELLED", "IN_CONSULTATION"))
                 .stream()
                 .filter(q -> !"ABSENT".equals(q.getStatus()))
                 .sorted(Comparator.comparingInt(QueueEntryEntity::getQueuePosition))
                 .collect(Collectors.toList());
 
-        if (waiting.isEmpty()) throw new RuntimeException("No patients waiting.");
+        if (waiting.isEmpty())
+            throw new RuntimeException("No patients waiting.");
 
         QueueEntryEntity next = waiting.get(0);
         next.setStatus("IN_CONSULTATION");

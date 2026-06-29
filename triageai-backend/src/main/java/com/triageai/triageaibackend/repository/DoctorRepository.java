@@ -10,7 +10,9 @@ import java.util.Optional;
 
 public interface DoctorRepository extends JpaRepository<DoctorEntity, String> {
     List<DoctorEntity> findByClinicClinicIdAndActiveTrue(String clinicId);
+
     List<DoctorEntity> findByClinicClinicId(String clinicId);
+
     Optional<DoctorEntity> findByEmail(String email);
 
     @Query("SELECT COUNT(d) FROM DoctorEntity d WHERE d.clinic.clinicId = :clinicId AND d.active = true")

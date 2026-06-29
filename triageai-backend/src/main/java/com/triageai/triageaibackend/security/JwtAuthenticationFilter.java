@@ -17,7 +17,8 @@ import java.util.List;
 @Component
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
-    @Autowired private JwtService jwtService;
+    @Autowired
+    private JwtService jwtService;
 
     @Override
     protected void doFilterInternal(HttpServletRequest req, HttpServletResponse res, FilterChain chain)
@@ -39,7 +40,8 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                             List.of(new SimpleGrantedAuthority("ROLE_" + role)));
                     SecurityContextHolder.getContext().setAuthentication(auth);
                 }
-            } catch (Exception ignored) {}
+            } catch (Exception ignored) {
+            }
         }
         chain.doFilter(req, res);
     }

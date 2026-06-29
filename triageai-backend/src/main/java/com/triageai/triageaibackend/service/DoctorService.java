@@ -24,13 +24,20 @@ import java.util.stream.Collectors;
 @Service
 public class DoctorService {
 
-    @Autowired private DoctorRepository doctorRepo;
-    @Autowired private ClinicRepository clinicRepo;
-    @Autowired private PasswordEncoder passwordEncoder;
-    @Autowired private NotificationService notificationService;
-    @Autowired private QueueEntryRepository queueRepo;
-    @Autowired private AppointmentRepository appointmentRepo;
-    @Autowired private QueueService queueService;
+    @Autowired
+    private DoctorRepository doctorRepo;
+    @Autowired
+    private ClinicRepository clinicRepo;
+    @Autowired
+    private PasswordEncoder passwordEncoder;
+    @Autowired
+    private NotificationService notificationService;
+    @Autowired
+    private QueueEntryRepository queueRepo;
+    @Autowired
+    private AppointmentRepository appointmentRepo;
+    @Autowired
+    private QueueService queueService;
 
     @Transactional
     public DoctorEntity registerDoctor(DoctorRegisterRequest req) {
@@ -70,10 +77,14 @@ public class DoctorService {
     @Transactional
     public DoctorEntity updateProfile(String doctorId, DoctorProfileUpdateRequest req) {
         DoctorEntity doc = getProfile(doctorId);
-        if (req.getName() != null) doc.setName(req.getName());
-        if (req.getSpecialization() != null) doc.setSpecialization(req.getSpecialization());
-        if (req.getExperienceYears() != null) doc.setExperienceYears(req.getExperienceYears());
-        if (req.getProfilePhoto() != null) doc.setProfilePhoto(req.getProfilePhoto());
+        if (req.getName() != null)
+            doc.setName(req.getName());
+        if (req.getSpecialization() != null)
+            doc.setSpecialization(req.getSpecialization());
+        if (req.getExperienceYears() != null)
+            doc.setExperienceYears(req.getExperienceYears());
+        if (req.getProfilePhoto() != null)
+            doc.setProfilePhoto(req.getProfilePhoto());
         if (req.getPassword() != null && !req.getPassword().isBlank())
             doc.setPassword(passwordEncoder.encode(req.getPassword()));
         return doctorRepo.save(doc);
@@ -105,10 +116,14 @@ public class DoctorService {
     @Transactional
     public DoctorEntity editDoctor(String doctorId, DoctorRegisterRequest req) {
         DoctorEntity doc = getProfile(doctorId);
-        if (req.getName() != null) doc.setName(req.getName());
-        if (req.getSpecialization() != null) doc.setSpecialization(req.getSpecialization());
-        if (req.getExperienceYears() > 0) doc.setExperienceYears(req.getExperienceYears());
-        if (req.getEmail() != null) doc.setEmail(req.getEmail());
+        if (req.getName() != null)
+            doc.setName(req.getName());
+        if (req.getSpecialization() != null)
+            doc.setSpecialization(req.getSpecialization());
+        if (req.getExperienceYears() > 0)
+            doc.setExperienceYears(req.getExperienceYears());
+        if (req.getEmail() != null)
+            doc.setEmail(req.getEmail());
         return doctorRepo.save(doc);
     }
 
@@ -133,16 +148,19 @@ public class DoctorService {
     @Transactional
     public void redistributeQueue(DoctorEntity doctor) {
         List<QueueEntryEntity> entries = queueRepo.findByDoctorDoctorIdAndStatusNotIn(
-                doctor.getDoctorId(), List.of("COMPLETED", "ABSENT", "CANCELLED", "IN_CONSULTATION")
-        );
-        if (entries.isEmpty()) return;
+                doctor.getDoctorId(), List.of("COMPLETED", "ABSENT", "CANCELLED", "IN_CONSULTATION"));
+        if (entries.isEmpty())
+            return;
 
-        List<DoctorEntity> availableDoctors = doctorRepo.findByClinicClinicIdAndActiveTrue(doctor.getClinic().getClinicId())
+        List<DoctorEntity> availableDoctors = doctorRepo
+                .findByClinicClinicIdAndActiveTrue(doctor.getClinic().getClinicId())
                 .stream()
-                .filter(d -> "AVAILABLE".equals(d.getAvailabilityStatus()) && !d.getDoctorId().equals(doctor.getDoctorId()))
+                .filter(d -> "AVAILABLE".equals(d.getAvailabilityStatus())
+                        && !d.getDoctorId().equals(doctor.getDoctorId()))
                 .collect(Collectors.toList());
 
-        if (availableDoctors.isEmpty()) return;
+        if (availableDoctors.isEmpty())
+            return;
 
         for (QueueEntryEntity qe : entries) {
             DoctorEntity bestDoc = availableDoctors.stream()

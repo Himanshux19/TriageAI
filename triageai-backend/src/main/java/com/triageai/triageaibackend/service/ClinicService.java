@@ -12,10 +12,14 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 public class ClinicService {
 
-    @Autowired private ClinicRepository clinicRepository;
-    @Autowired private PasswordEncoder passwordEncoder;
-    @Autowired private QRService qrService;
-    @Autowired private NotificationService notificationService;
+    @Autowired
+    private ClinicRepository clinicRepository;
+    @Autowired
+    private PasswordEncoder passwordEncoder;
+    @Autowired
+    private QRService qrService;
+    @Autowired
+    private NotificationService notificationService;
 
     public String register(ClinicRegisterRequest req) {
         if (req.getPassword() == null || !req.getPassword().equals(req.getConfirmPassword()))
@@ -63,13 +67,20 @@ public class ClinicService {
 
     public ClinicProfileResponse updateProfile(String username, UpdateClinicRequest req) {
         ClinicEntity c = getClinicEntityByUsername(username);
-        if (req.getClinicName() != null) c.setClinicName(req.getClinicName());
-        if (req.getEmail() != null) c.setEmail(req.getEmail());
-        if (req.getAddress() != null) c.setAddress(req.getAddress());
-        if (req.getPhone() != null) c.setPhone(req.getPhone());
-        if (req.getLatitude() != null) c.setLatitude(req.getLatitude());
-        if (req.getLongitude() != null) c.setLongitude(req.getLongitude());
-        if (req.getThresholdDistance() != null) c.setThresholdDistance(req.getThresholdDistance());
+        if (req.getClinicName() != null)
+            c.setClinicName(req.getClinicName());
+        if (req.getEmail() != null)
+            c.setEmail(req.getEmail());
+        if (req.getAddress() != null)
+            c.setAddress(req.getAddress());
+        if (req.getPhone() != null)
+            c.setPhone(req.getPhone());
+        if (req.getLatitude() != null)
+            c.setLatitude(req.getLatitude());
+        if (req.getLongitude() != null)
+            c.setLongitude(req.getLongitude());
+        if (req.getThresholdDistance() != null)
+            c.setThresholdDistance(req.getThresholdDistance());
         if (req.getPassword() != null && !req.getPassword().isBlank())
             c.setPassword(passwordEncoder.encode(req.getPassword()));
         clinicRepository.save(c);
