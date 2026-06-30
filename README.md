@@ -1,66 +1,129 @@
-# TriageAI — AI-Powered Clinical Triage & Queue Management System
+# TriageAI
 
-TriageAI is a state-of-the-art clinical triage and queue management platform designed to optimize patient flows in clinics and hospitals. By leveraging advanced artificial intelligence (LLaMA 3.3 70B via Groq API) and real-time geofencing, TriageAI prioritizes patients based on clinical severity rather than simple arrival time, ensuring critical cases are attended to immediately.
+TriageAI is an AI-powered clinical triage and queue management platform designed to improve patient flow, prioritise urgent cases, and support clinics with smart digital workflows. The system combines AI-assisted symptom analysis, medical coding support, queue tracking, and booking tools into a single experience for clinics, doctors, and patients.
 
-## Key Features
+## Overview
 
-- **AI-Powered Triage**: Automatically evaluates symptoms, classifies clinical urgency (Critical, High, Medium, Low), generates preliminary AI diagnoses, and suggests clinical actions.
-- **ICD-10-CM Mapping**: Automatically maps patient symptoms to relevant ICD-10 medical codes using a rich pre-mapped database with intelligent LLM fallback.
-- **Voice-to-Text Input**: Enables patients to dictate their symptoms using Whisper v3 voice transcription.
-- **Geofencing & Tracker**: Automatically tracks patient locations. If a patient leaves the geofenced clinic radius for more than 30 minutes, they are automatically marked absent.
-- **Dynamic Load Balancing**: Ensures that if a doctor goes offline or becomes unavailable, waiting patients are dynamically redistributed to other available doctors in the clinic.
-- **Clinic QR Booking**: Generates unique QR codes for clinics so patients can book appointments simply by scanning the code.
-- **Email Notifications**: Automatically emails temporary credentials to registered doctors, booking confirmations with live queue positions to patients, and password reset links.
-- **Theme Support**: Premium light and dark mode design system.
-- **Patient History**: High-fidelity logs for clinics and doctors to review overall history of patients attended.
+TriageAI helps healthcare providers:
+
+- assess patient urgency using AI-driven triage logic
+- map symptoms to ICD-10 related codes
+- manage appointment booking and queue status
+- support doctor and clinic dashboards
+- send notifications and password reset emails
+- generate QR-based clinic booking access
 
 ## Tech Stack
 
-- **Backend**: Spring Boot 3.2, Spring Security, JPA/Hibernate, MySQL 8, JWT, ZXing QR Code
-- **Frontend**: React 18, Vite 6, Tailwind CSS v4, Lucide Icons
-- **AI Engine**: Groq API (LLaMA 3.3 70B + Whisper v3)
+- Backend: Spring Boot 3.2, Spring Security, JPA/Hibernate, MySQL, JWT
+- Frontend: React 18, Vite, React Router, Axios
+- AI Services: Groq API for chat and transcription
+- Other: QR generation, SMTP email delivery, validation and file upload support
 
-## Setup & Installation
+## Project Structure
 
-### 1. Database Setup
+```text
+TriageAI/
+├── triageai-backend/
+│   ├── src/
+│   │   ├── main/
+│   │   │   ├── java/
+│   │   │   │   └── com/triageai/triageaibackend/
+│   │   │   │       ├── controller/
+│   │   │   │       ├── dto/
+│   │   │   │       ├── entity/
+│   │   │   │       ├── repository/
+│   │   │   │       ├── security/
+│   │   │   │       └── service/
+│   │   │   └── resources/
+│   │   │       ├── application.properties
+│   │   │       └── static/
+│   │   └── test/
+│   ├── pom.xml
+│   └── mvnw / mvnw.cmd
+├── triageai-frontend/
+│   ├── src/
+│   │   ├── components/
+│   │   ├── context/
+│   │   ├── pages/
+│   │   ├── utils/
+│   │   ├── main.jsx
+│   │   └── index.css
+│   ├── package.json
+│   └── vite.config.js
+└── README.md
+```
 
-Ensure you have MySQL running, and create a database named `triageai`:
+## Prerequisites
+
+Before running the project, make sure you have:
+
+- Java 17+
+- Maven or the provided Maven wrapper
+- Node.js 18+
+- MySQL 8+
+- A Groq API key
+- SMTP credentials for email notifications
+
+## Environment Variables
+
+The backend reads configuration from environment variables. Set the following before starting the app:
+
+| Variable      | Description                       | Example                              |
+| ------------- | --------------------------------- | ------------------------------------ |
+| DB_URL        | MySQL JDBC connection URL         | jdbc:mysql://localhost:3306/triageai |
+| DB_USER       | MySQL username                    | root                                 |
+| DB_PASSWORD   | MySQL password                    | your_password                        |
+| JWT_SECRET    | Secret key for JWT authentication | a-long-random-string                 |
+| SMTP_USER     | SMTP email username               | your@email.com                       |
+| SMTP_PASSWORD | SMTP app password or password     | your_app_password                    |
+| GROQ_API_KEY  | API key for Groq AI services      | your_groq_key                        |
+
+### Example (PowerShell)
+
+```powershell
+$env:DB_URL="jdbc:mysql://localhost:3306/triageai"
+$env:DB_USER="root"
+$env:DB_PASSWORD="your_password"
+$env:JWT_SECRET="your_jwt_secret"
+$env:SMTP_USER="your@email.com"
+$env:SMTP_PASSWORD="your_app_password"
+$env:GROQ_API_KEY="your_groq_key"
+```
+
+## Database Setup
+
+Create the database in MySQL:
 
 ```sql
 CREATE DATABASE triageai;
 ```
 
-### 2. Environment Variables (.env)
+## Running the Project
 
-Create a `.env` file in `triageai-backend/src/main/resources/.env` containing your local settings:
+### 1. Start the Backend
 
-```env
-DB_URL=jdbc:mysql://localhost:3306/triageai
-DB_USER=your_mysql_user
-DB_PASSWORD=your_mysql_password
-JWT_SECRET=your_jwt_secret_key_at_least_32_characters
-SMTP_USER=your_smtp_email
-SMTP_PASSWORD=your_smtp_app_password
-GROQ_API_KEY=your_groq_api_key
-```
+From the backend folder:
 
-### 3. Running the Backend
-
-From the `triageai-backend` directory, start the Spring Boot app:
-
-```bash
+```powershell
+cd triageai-backend
 ./mvnw.cmd spring-boot:run
 ```
 
-The server will run on `http://localhost:8080`.
+The backend will run at:
 
-### 4. Running the Frontend
+- http://localhost:8080
 
-From the `triageai-frontend` directory:
+### 2. Start the Frontend
 
-```bash
+From the frontend folder:
+
+```powershell
+cd triageai-frontend
 npm install
 npm run dev
 ```
 
-Open `http://localhost:5173` in your browser.
+The frontend will run at:
+
+- http://localhost:5173
