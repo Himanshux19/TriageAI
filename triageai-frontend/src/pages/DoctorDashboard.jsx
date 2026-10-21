@@ -1,6 +1,25 @@
 import React, { useEffect, useState, useCallback, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Activity, Users, User, LogOut, RefreshCw, CheckCircle2, X, ArrowRight, Stethoscope, AlertCircle, Clock, ShieldAlert, Check, Camera, ChevronRight, Info } from 'lucide-react'
+import {
+  Activity,
+  Users,
+  User,
+  LogOut,
+  RefreshCw,
+  CheckCircle2,
+  X,
+  ArrowRight,
+  Stethoscope,
+  AlertCircle,
+  Clock,
+  ShieldAlert,
+  Check,
+  Camera,
+  ChevronRight,
+  Info,
+  FileText,
+  MapPin,
+} from 'lucide-react'
 import api from '../utils/api'
 import Sidebar from '../components/Sidebar'
 import Topbar from '../components/Topbar'
@@ -9,59 +28,91 @@ import ScoreRing from '../components/ScoreRing'
 import IcdCards from '../components/IcdCards'
 
 const NAV = [
-  { id: 'overview', label: 'Overview',      icon: Activity },
-  { id: 'queue',    label: 'Patient Queue', icon: Users },
-  { id: 'history',  label: 'Patient History', icon: Clock },
-  { id: 'profile',  label: 'My Profile',    icon: User },
+  { id: 'overview', label: 'Dashboard', icon: Activity },
+  { id: 'queue', label: 'Patient Queue', icon: Users },
+  { id: 'history', label: 'Consultation History', icon: Clock },
+  { id: 'profile', label: 'Profile', icon: User },
 ]
 
 export default function DoctorDashboard() {
   const navigate = useNavigate()
   const [tab, setTab] = useState('overview')
   const [slim, setSlim] = useState(false)
+  const [mobileNav, setMobileNav] = useState(false)
+
   const [queue, setQueue] = useState([])
   const [sel, setSel] = useState(null)
   const [doc, setDoc] = useState(null)
   const [avail, setAvail] = useState('AVAILABLE')
   const [time, setTime] = useState(new Date())
+
+  // Queue filters & sort
   const [search, setSearch] = useState('')
   const [sevF, setSevF] = useState('ALL')
+  const [sortBy, setSortBy] = useState('position')
+
   const [loading, setLoading] = useState(true)
   const [err, setErr] = useState('')
   const [ok, setOk] = useState('')
   const [busy, setBusy] = useState(false)
+  const [confirmAbsentId, setConfirmAbsentId] = useState(null)
 
   // Profile form
-  const [pName, setPName] = useState(''); const [pSpec, setPSpec] = useState(''); const [pExp, setPExp] = useState(''); const [pPwd, setPPwd] = useState(''); const [pPhoto, setPPhoto] = useState('')
+  const [pName, setPName] = useState('')
+  const [pSpec, setPSpec] = useState('')
+  const [pExp, setPExp] = useState('')
+  const [pPwd, setPPwd] = useState('')
+  const [pPhoto, setPPhoto] = useState('')
   const fileRef = useRef()
 
-  // Patient History states
+  // Consultation History states
   const [history, setHistory] = useState([])
   const [histSel, setHistSel] = useState(null)
   const [histSearch, setHistSearch] = useState('')
   const [histSevFilter, setHistSevFilter] = useState('ALL')
   const [histStatusFilter, setHistStatusFilter] = useState('ALL')
 
-  const logout = () => { ['triageai_token','triageai_role','triageai_id'].forEach(k => localStorage.removeItem(k)); navigate('/') }
-  const flash = (msg, isErr = false) => { isErr ? setErr(msg) : setOk(msg); setTimeout(() => isErr ? setErr('') : setOk(''), 4000) }
+  const logout = () => {
+    ;['triageai_token', 'triageai_role', 'triageai_id'].forEach(k => localStorage.removeItem(k))
+    navigate('/')
+  }
+
+  const flash = (msg, isErr = false) => {
+    if (isErr) {
+      setErr(msg)
+      setTimeout(() => setErr(''), 4500)
+    } else {
+      setOk(msg)
+      setTimeout(() => setOk(''), 4000)
+    }
+  }
 
   const loadProfile = useCallback(async () => {
     try {
       const { data } = await api.get('/api/doctor/profile')
-      setDoc(data); setAvail(data.availabilityStatus || 'AVAILABLE')
-      setPName(data.name || ''); setPSpec(data.specialization || ''); setPExp(data.experienceYears || ''); setPPhoto(data.profilePhoto || '')
-    } catch { logout() }
+      setDoc(data)
+      setAvail(data.availabilityStatus || 'AVAILABLE')
+      setPName(data.name || '')
+      setPSpec(data.specialization || '')
+      setPExp(data.experienceYears ?? '')
+      setPPhoto(data.profilePhoto || '')
+    } catch {
+      logout()
+    }
   }, [])
 
   const loadQueue = useCallback(async () => {
     try {
       const { data } = await api.get('/api/doctor/queue')
-      setQueue(data || [])
-      if (sel) { const u = data.find(p => p.appointmentId === sel.appointmentId); if (u) setSel(u) }
+      const list = data || []
+      setQueue(list)
+      setSel(prev => (prev ? list.find(p => p.appointmentId === prev.appointmentId) || prev : null))
     } catch (e) {
       if (e.response?.status === 401) logout()
-    } finally { setLoading(false) }
-  }, [sel])
+    } finally {
+      setLoading(false)
+    }
+  }, [])
 
   const loadHistory = useCallback(async () => {
     try {
@@ -70,361 +121,872 @@ export default function DoctorDashboard() {
     } catch {}
   }, [])
 
-  useEffect(() => { loadProfile(); loadQueue() }, [])
   useEffect(() => {
-    if (tab === 'queue') { const t = setInterval(loadQueue, 10000); return () => clearInterval(t) }
-    if (tab === 'history') { loadHistory() }
+    loadProfile()
+    loadQueue()
+    loadHistory()
+  }, [loadProfile, loadQueue, loadHistory])
+
+  useEffect(() => {
+    if (tab === 'queue' || tab === 'overview') {
+      const t = setInterval(loadQueue, 10000)
+      return () => clearInterval(t)
+    }
+    if (tab === 'history') {
+      loadHistory()
+    }
   }, [tab, loadQueue, loadHistory])
-  useEffect(() => { const t = setInterval(() => setTime(new Date()), 1000); return () => clearInterval(t) }, [])
+
+  useEffect(() => {
+    const t = setInterval(() => setTime(new Date()), 30000)
+    return () => clearInterval(t)
+  }, [])
 
   const toggleAvail = async () => {
     const next = avail === 'AVAILABLE' ? 'UNAVAILABLE' : 'AVAILABLE'
-    try { await api.put('/api/doctor/availability', null, { params: { status: next } }); setAvail(next); flash(`Status: ${next.toLowerCase()}`) }
-    catch { flash('Failed to update.', true) }
+    try {
+      await api.put('/api/doctor/availability', null, { params: { status: next } })
+      setAvail(next)
+      flash(`Availability updated to ${next === 'AVAILABLE' ? 'Available' : 'Unavailable'}.`)
+    } catch {
+      flash('Unable to update availability status.', true)
+    }
   }
 
   const callNext = async () => {
     setBusy(true)
-    try { await api.post('/api/doctor/call-next'); await loadQueue(); flash('Next patient called.') }
-    catch { flash('No patients available.', true) }
-    finally { setBusy(false) }
+    try {
+      const { data } = await api.post('/api/doctor/call-next')
+      await loadQueue()
+      if (data) setSel(data)
+      flash('Next prioritized patient called to consultation.')
+    } catch (ex) {
+      flash(ex.response?.data?.message || 'No waiting patients available to call.', true)
+    } finally {
+      setBusy(false)
+    }
   }
 
   const complete = async id => {
-    try { await api.put(`/api/doctor/complete/${id}`); setSel(null); await loadQueue(); flash('Consultation completed.') }
-    catch { flash('Failed.', true) }
+    setBusy(true)
+    try {
+      await api.put(`/api/doctor/complete/${id}`)
+      setSel(null)
+      await Promise.all([loadQueue(), loadHistory()])
+      flash('Consultation marked complete.')
+    } catch {
+      flash('Unable to mark consultation complete.', true)
+    } finally {
+      setBusy(false)
+    }
   }
 
   const markAbsent = async id => {
-    try { await api.put(`/api/doctor/mark-absent/${id}`); setSel(null); await loadQueue(); flash('Patient marked absent.') }
-    catch { flash('Failed.', true) }
+    setBusy(true)
+    try {
+      await api.put(`/api/doctor/mark-absent/${id}`)
+      setConfirmAbsentId(null)
+      setSel(null)
+      await Promise.all([loadQueue(), loadHistory()])
+      flash('Patient marked absent and removed from active queue.')
+    } catch {
+      flash('Unable to mark patient absent.', true)
+    } finally {
+      setBusy(false)
+    }
   }
 
   const saveProfile = async e => {
-    e.preventDefault(); setBusy(true)
+    e.preventDefault()
+    setBusy(true)
     try {
-      await api.put('/api/doctor/profile', { name: pName, specialization: pSpec, experienceYears: parseInt(pExp), profilePhoto: pPhoto || null, password: pPwd || null })
-      setPPwd(''); flash('Profile updated.'); await loadProfile()
-    } catch { flash('Save failed.', true) }
-    finally { setBusy(false) }
+      await api.put('/api/doctor/profile', {
+        name: pName.trim(),
+        specialization: pSpec.trim(),
+        experienceYears: parseInt(pExp, 10) || 0,
+        profilePhoto: pPhoto || null,
+        password: pPwd || null,
+      })
+      setPPwd('')
+      flash('Clinician profile saved.')
+      await loadProfile()
+    } catch {
+      flash('Failed to update profile.', true)
+    } finally {
+      setBusy(false)
+    }
   }
 
   const onPhoto = e => {
-    const f = e.target.files[0]; if (!f) return
-    const r = new FileReader(); r.onload = ev => setPPhoto(ev.target.result); r.readAsDataURL(f)
+    const f = e.target.files[0]
+    if (!f) return
+    const r = new FileReader()
+    r.onload = ev => setPPhoto(ev.target.result)
+    r.readAsDataURL(f)
+  }
+
+  const handleToggleSidebar = () => {
+    if (window.innerWidth <= 768) {
+      setMobileNav(m => !m)
+    } else {
+      setSlim(s => !s)
+    }
   }
 
   const active = queue.find(p => p.status === 'IN_CONSULTATION')
-  const waiting = queue.filter(p => !['IN_CONSULTATION','COMPLETED','ABSENT'].includes(p.status))
-  const filtered = waiting
+  const waiting = queue.filter(p => !['IN_CONSULTATION', 'COMPLETED', 'ABSENT', 'CANCELLED'].includes(p.status))
+  const completedTodayCount = history.filter(h => {
+    if (h.status !== 'COMPLETED' || !h.bookingTime) return false
+    const d = new Date(h.bookingTime)
+    const now = new Date()
+    return d.toDateString() === now.toDateString()
+  }).length
+
+  const filteredQueue = waiting
     .filter(p => sevF === 'ALL' || p.severityLevel === sevF)
-    .filter(p => !search || p.patientName?.toLowerCase().includes(search.toLowerCase()) || p.tokenNumber?.toLowerCase().includes(search.toLowerCase()))
+    .filter(p => {
+      if (!search) return true
+      const q = search.toLowerCase()
+      return (
+        p.patientName?.toLowerCase().includes(q) ||
+        p.tokenNumber?.toLowerCase().includes(q) ||
+        p.symptoms?.toLowerCase().includes(q) ||
+        p.aiDiagnosis?.toLowerCase().includes(q)
+      )
+    })
+    .slice()
+    .sort((a, b) => {
+      if (sortBy === 'priority') return (b.priorityScore || 0) - (a.priorityScore || 0)
+      if (sortBy === 'wait') return (b.estimatedWaitTime || 0) - (a.estimatedWaitTime || 0)
+      return (a.queuePosition || 999) - (b.queuePosition || 999)
+    })
 
-  const navItems = NAV.map(n => n.id === 'queue' ? { ...n, badge: waiting.length } : n)
+  const filteredHistory = history.filter(p => {
+    const q = histSearch.toLowerCase()
+    const matchesSearch =
+      !histSearch ||
+      p.patientName?.toLowerCase().includes(q) ||
+      p.tokenNumber?.toLowerCase().includes(q) ||
+      p.aiDiagnosis?.toLowerCase().includes(q)
+    const matchesSev = histSevFilter === 'ALL' || p.severityLevel === histSevFilter
+    const matchesStatus = histStatusFilter === 'ALL' || p.status === histStatusFilter
+    return matchesSearch && matchesSev && matchesStatus
+  })
 
-  if (loading) return (
-    <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--bg)' }}>
-      <RefreshCw size={24} color="var(--accent)" className="spin" />
-    </div>
-  )
+  const navItems = NAV.map(n => (n.id === 'queue' ? { ...n, badge: waiting.length } : n))
+
+  if (loading) {
+    return (
+      <div
+        style={{
+          minHeight: '100vh',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          background: 'var(--bg)',
+        }}
+      >
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10 }}>
+          <RefreshCw size={22} color="var(--accent)" className="spin" />
+          <div style={{ fontSize: 13, color: 'var(--txt3)' }}>Loading clinical workspace…</div>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="shell">
       <Sidebar
-        items={navItems} active={tab} onSelect={setTab} collapsed={slim} setCollapsed={setSlim}
-        profileSlot={doc && (
-          <div style={{ display: 'flex', alignItems: 'center', gap: 9 }}>
-            {pPhoto ? <img src={pPhoto} style={{ width: 34, height: 34, borderRadius: '50%', objectFit: 'cover' }} alt="" />
-              : <div className="avatar" style={{ width: 34, height: 34, fontSize: 13 }}>{doc.name?.charAt(0) || 'D'}</div>}
-            <div style={{ overflow: 'hidden' }}>
-              <div style={{ fontSize: 12, color: 'rgba(255,255,255,.85)', fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{doc.name}</div>
-              <div style={{ fontSize: 10, color: 'var(--sidebar-txt)' }}>{doc.specialization}</div>
+        roleLabel="Doctor Portal"
+        items={navItems}
+        active={tab}
+        onSelect={setTab}
+        collapsed={slim}
+        setCollapsed={setSlim}
+        mobileOpen={mobileNav}
+        onCloseMobile={() => setMobileNav(false)}
+        profileSlot={
+          doc && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              {pPhoto ? (
+                <img
+                  src={pPhoto}
+                  style={{ width: 34, height: 34, borderRadius: '50%', objectFit: 'cover' }}
+                  alt=""
+                />
+              ) : (
+                <div className="avatar" style={{ width: 34, height: 34, fontSize: 13 }}>
+                  {doc.name?.charAt(0) || 'D'}
+                </div>
+              )}
+              <div style={{ overflow: 'hidden' }}>
+                <div
+                  style={{
+                    fontSize: 12.5,
+                    color: '#FFFFFF',
+                    fontWeight: 600,
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                    whiteSpace: 'nowrap',
+                  }}
+                >
+                  {doc.name}
+                </div>
+                <div style={{ fontSize: 11, color: 'var(--sidebar-txt)' }}>
+                  {doc.specialization} · {doc.doctorId}
+                </div>
+              </div>
             </div>
-          </div>
-        )}
-        bottomItems={[{ id: 'logout', label: 'Sign Out', icon: LogOut, color: '#EF4444', onClick: logout }]}
+          )
+        }
+        bottomItems={[{ id: 'logout', label: 'Sign Out', icon: LogOut, color: '#F87171', onClick: logout }]}
       />
+
       <div className={`main${slim ? ' slim' : ''}`}>
         <Topbar
           title={NAV.find(n => n.id === tab)?.label}
-          subtitle={time.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
-          onToggleSidebar={() => setSlim(s => !s)}
-          onRefresh={() => { loadQueue(); loadHistory(); loadProfile() }}
+          subtitle={`${doc?.name || 'Clinician'} · ${time.toLocaleDateString([], {
+            weekday: 'short',
+            month: 'short',
+            day: 'numeric',
+          })}`}
+          onToggleSidebar={handleToggleSidebar}
+          onRefresh={() => {
+            loadQueue()
+            loadHistory()
+            loadProfile()
+          }}
           extra={
-            <button onClick={toggleAvail} className={`btn btn-sm ${avail === 'AVAILABLE' ? 'btn-success' : 'btn-ghost'}`} style={{ fontSize: 12 }}>
-              <span style={{ width: 7, height: 7, borderRadius: '50%', background: avail === 'AVAILABLE' ? 'var(--green)' : 'var(--txt3)', display: 'inline-block' }} />
-              {avail === 'AVAILABLE' ? 'Available' : 'Unavailable'}
-            </button>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <button
+                type="button"
+                onClick={toggleAvail}
+                className={`btn btn-sm ${avail === 'AVAILABLE' ? 'btn-success' : 'btn-ghost'}`}
+                title="Toggle clinician availability"
+              >
+                <span
+                  style={{
+                    width: 7,
+                    height: 7,
+                    borderRadius: '50%',
+                    background: avail === 'AVAILABLE' ? 'currentColor' : 'var(--txt3)',
+                    display: 'inline-block',
+                  }}
+                />
+                <span>{avail === 'AVAILABLE' ? 'Available for Patients' : 'Paused / Unavailable'}</span>
+              </button>
+              {!active && waiting.length > 0 && (
+                <button
+                  type="button"
+                  onClick={callNext}
+                  disabled={busy}
+                  className="btn btn-primary btn-sm"
+                >
+                  <Stethoscope size={14} />
+                  <span>Call Next ({waiting[0]?.tokenNumber})</span>
+                </button>
+              )}
+            </div>
           }
         />
-        <div className="page-body">
-          {err && <div className="alert alert-error" style={{ marginBottom: 16 }}><ShieldAlert size={15} style={{ flexShrink: 0 }} /><span style={{ flex: 1 }}>{err}</span><button onClick={() => setErr('')} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'inherit', display: 'flex' }}><X size={14} /></button></div>}
-          {ok  && <div className="alert alert-success" style={{ marginBottom: 16 }}><Check size={15} style={{ flexShrink: 0 }} /><span>{ok}</span></div>}
 
-          {/* ── OVERVIEW ── */}
+        <div className="page-body">
+          {err && (
+            <div className="alert alert-error" style={{ marginBottom: 16 }} role="alert">
+              <ShieldAlert size={15} style={{ flexShrink: 0, marginTop: 1 }} />
+              <span style={{ flex: 1 }}>{err}</span>
+              <button
+                type="button"
+                onClick={() => setErr('')}
+                style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'inherit', display: 'flex' }}
+                aria-label="Dismiss error"
+              >
+                <X size={14} />
+              </button>
+            </div>
+          )}
+          {ok && (
+            <div className="alert alert-success" style={{ marginBottom: 16 }} role="status">
+              <Check size={15} style={{ flexShrink: 0, marginTop: 1 }} />
+              <span style={{ flex: 1 }}>{ok}</span>
+              <button
+                type="button"
+                onClick={() => setOk('')}
+                style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'inherit', display: 'flex' }}
+                aria-label="Dismiss notification"
+              >
+                <X size={14} />
+              </button>
+            </div>
+          )}
+
+          {/* ── DASHBOARD OVERVIEW TAB ── */}
           {tab === 'overview' && (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 14 }}>
-                <div className="stat"><div className="stat-icon" style={{ background: '#3B5BDB18', color: '#3B5BDB' }}><Users size={18} /></div><div className="stat-val">{waiting.length}</div><div className="stat-lbl">Waiting</div></div>
-                <div className="stat"><div className="stat-icon" style={{ background: '#DC262618', color: '#DC2626' }}><AlertCircle size={18} /></div><div className="stat-val">{queue.filter(p => p.severityLevel === 'CRITICAL').length}</div><div className="stat-lbl">Critical</div></div>
-                <div className="stat"><div className="stat-icon" style={{ background: '#05966918', color: '#059669' }}><CheckCircle2 size={18} /></div><div className="stat-val">{queue.filter(p => p.status === 'COMPLETED').length}</div><div className="stat-lbl">Completed</div></div>
-                <div className="stat"><div className="stat-icon" style={{ background: '#D9770618', color: '#D97706' }}><Clock size={18} /></div><div className="stat-val">{waiting.length > 0 ? Math.round(waiting.reduce((s,p) => s + (p.estimatedWaitTime||0), 0)/waiting.length) : 0}m</div><div className="stat-lbl">Avg Wait</div></div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+              {/* Workload Metrics */}
+              <div className="grid-4">
+                <div className="stat">
+                  <div className="stat-top">
+                    <span className="stat-lbl">Awaiting Assessment</span>
+                    <div className="stat-icon" style={{ background: 'var(--accent-bg)', color: 'var(--accent)' }}>
+                      <Users size={18} />
+                    </div>
+                  </div>
+                  <div className="stat-val">{waiting.length}</div>
+                  <div className="stat-delta">In your assigned queue</div>
+                </div>
+
+                <div className="stat">
+                  <div className="stat-top">
+                    <span className="stat-lbl">Critical Priority</span>
+                    <div className="stat-icon" style={{ background: 'var(--red-bg)', color: 'var(--red)' }}>
+                      <AlertCircle size={18} />
+                    </div>
+                  </div>
+                  <div className="stat-val">
+                    {queue.filter(p => p.severityLevel === 'CRITICAL' && p.status !== 'COMPLETED').length}
+                  </div>
+                  <div className="stat-delta">Immediate review required</div>
+                </div>
+
+                <div className="stat">
+                  <div className="stat-top">
+                    <span className="stat-lbl">Completed Today</span>
+                    <div className="stat-icon" style={{ background: 'var(--green-bg)', color: 'var(--green)' }}>
+                      <CheckCircle2 size={18} />
+                    </div>
+                  </div>
+                  <div className="stat-val">{completedTodayCount}</div>
+                  <div className="stat-delta">Consultations finished</div>
+                </div>
+
+                <div className="stat">
+                  <div className="stat-top">
+                    <span className="stat-lbl">Estimated Queue Wait</span>
+                    <div className="stat-icon" style={{ background: 'var(--orange-bg)', color: 'var(--orange)' }}>
+                      <Clock size={18} />
+                    </div>
+                  </div>
+                  <div className="stat-val">
+                    {waiting.length > 0
+                      ? `${Math.round(
+                          waiting.reduce((s, p) => s + (p.estimatedWaitTime || 0), 0) / waiting.length
+                        )}m`
+                      : '0m'}
+                  </div>
+                  <div className="stat-delta">Average across waiting patients</div>
+                </div>
               </div>
 
-              {/* Active consultation */}
+              {/* Active Consultation Clinical Workspace */}
               {active ? (
-                <div className="card card-p" style={{ border: '2px solid var(--accent)', boxShadow: '0 0 0 4px var(--accent-glow)' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16 }}>
-                    <span style={{ width: 8, height: 8, background: '#059669', borderRadius: '50%' }} className="pulse-anim" />
-                    <span style={{ fontSize: 11, fontWeight: 700, color: '#059669', textTransform: 'uppercase', letterSpacing: '.06em' }}>In Consultation</span>
-                    <span style={{ marginLeft: 'auto' }}><SeverityBadge level={active.severityLevel} /></span>
-                    {active.urgencyFlag && <span className="badge b-critical"><AlertCircle size={10} />URGENT</span>}
+                <div className="card card-p" style={{ borderLeft: '4px solid var(--accent)' }}>
+                  <div
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      flexWrap: 'wrap',
+                      gap: 10,
+                      paddingBottom: 14,
+                      marginBottom: 16,
+                      borderBottom: '1px solid var(--border)',
+                    }}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                      <span className="badge b-info">Active Consultation</span>
+                      <span
+                        style={{
+                          fontFamily: 'monospace',
+                          fontWeight: 800,
+                          fontSize: 15,
+                          color: 'var(--accent)',
+                        }}
+                      >
+                        Token {active.tokenNumber}
+                      </span>
+                      <span style={{ fontWeight: 700, fontSize: 16, color: 'var(--txt1)' }}>
+                        {active.patientName}
+                      </span>
+                      <span style={{ fontSize: 13, color: 'var(--txt3)' }}>
+                        ({active.age}y · {active.gender})
+                      </span>
+                    </div>
+
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <SeverityBadge level={active.severityLevel} verbose />
+                      {active.urgencyFlag && <span className="badge b-critical">Urgent Flag</span>}
+                    </div>
                   </div>
-                  <div style={{ display: 'flex', gap: 16, alignItems: 'flex-start' }}>
-                    <div className="avatar" style={{ width: 56, height: 56, fontSize: 22, flexShrink: 0 }}>{active.patientName?.charAt(0) || 'P'}</div>
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ fontSize: 20, fontWeight: 900, color: 'var(--txt1)', marginBottom: 2 }}>{active.patientName}</div>
-                      <div style={{ fontSize: 13, color: 'var(--txt2)', marginBottom: 12 }}>{active.age}y · {active.gender} · Token <strong style={{ color: 'var(--accent)' }}>{active.tokenNumber}</strong></div>
-                      <div style={{ display: 'flex', gap: 16, marginBottom: 14, flexWrap: 'wrap' }}>
-                        <ScoreRing score={active.riskScore} size={52} label="Risk" />
-                        <div style={{ flex: 1, minWidth: 180 }}>
-                          <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.04em', color: 'var(--txt3)', marginBottom: 4 }}>AI Diagnosis</div>
-                          <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--txt1)', marginBottom: 8 }}>{active.aiDiagnosis || 'Pending'}</div>
-                          <IcdCards icdCodes={[]} />
-                        </div>
+
+                  <div className="grid-2" style={{ marginBottom: 16 }}>
+                    {/* Left: Patient-Reported Information */}
+                    <div className="clinical-sec">
+                      <div className="clinical-sec-header">
+                        <span>1. Patient-Reported Symptoms</span>
+                        <span style={{ fontWeight: 500, textTransform: 'none' }}>Source: Patient Intake</span>
                       </div>
-                      {active.symptoms && (
-                        <div style={{ padding: '10px 12px', background: 'var(--surface2)', borderRadius: 10, border: '1px solid var(--border)', fontSize: 13, color: 'var(--txt2)', lineHeight: 1.6, marginBottom: 14 }}>
-                          <div style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', color: 'var(--txt3)', marginBottom: 4 }}>Symptoms</div>
-                          {active.symptoms}
+                      <div style={{ fontSize: 13.5, color: 'var(--txt1)', lineHeight: 1.6, marginBottom: 10 }}>
+                        {active.symptoms || 'No symptom statement recorded.'}
+                      </div>
+                      {active.extractedSymptoms && (
+                        <div>
+                          <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--txt3)', marginBottom: 5 }}>
+                            Key Presenting Indicators:
+                          </div>
+                          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5 }}>
+                            {active.extractedSymptoms.split(',').map((s, i) => (
+                              <span key={i} className="badge b-neutral">
+                                {s.trim()}
+                              </span>
+                            ))}
+                          </div>
                         </div>
                       )}
+                    </div>
+
+                    {/* Right: System Decision Support */}
+                    <div className="clinical-sec ai-support">
+                      <div className="clinical-sec-header">
+                        <span>2. Triage Decision Support</span>
+                        <span style={{ fontWeight: 500, textTransform: 'none' }}>Non-Diagnostic Aid</span>
+                      </div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 10 }}>
+                        <ScoreRing score={active.riskScore} size={48} label="Risk" />
+                        <ScoreRing score={active.priorityScore || 0} size={48} label="Priority" />
+                        <div style={{ flex: 1 }}>
+                          <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--txt3)', textTransform: 'uppercase' }}>
+                            Preliminary Assessment
+                          </div>
+                          <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--txt1)', marginTop: 2 }}>
+                            {active.aiDiagnosis || 'Awaiting clinician evaluation'}
+                          </div>
+                          {active.recommendedAction && (
+                            <div style={{ fontSize: 12, color: 'var(--txt2)', marginTop: 3 }}>
+                              <strong>Suggested Action:</strong> {active.recommendedAction.replace(/_/g, ' ')}
+                            </div>
+                          )}
+                        </div>
+                      </div>
                       {active.clinicalNotes && (
-                        <div style={{ padding: '10px 12px', background: 'var(--blue-bg)', border: '1px solid var(--blue-bd)', borderRadius: 10, fontSize: 12, color: 'var(--blue)', lineHeight: 1.6, marginBottom: 14, display: 'flex', gap: 8 }}>
-                          <Info size={14} style={{ flexShrink: 0, marginTop: 1 }} />{active.clinicalNotes}
+                        <div
+                          style={{
+                            fontSize: 12.5,
+                            color: 'var(--txt2)',
+                            background: 'var(--surface)',
+                            padding: '8px 10px',
+                            borderRadius: 6,
+                            border: '1px solid var(--border)',
+                            lineHeight: 1.5,
+                          }}
+                        >
+                          <strong>Triage Rationale / Notes:</strong> {active.clinicalNotes}
                         </div>
                       )}
-                      <div style={{ display: 'flex', gap: 10 }}>
-                        <button onClick={() => complete(active.appointmentId)} className="btn btn-primary"><CheckCircle2 size={15} />Complete</button>
-                        <button onClick={() => markAbsent(active.appointmentId)} className="btn btn-danger"><X size={15} />Mark Absent</button>
-                      </div>
+                    </div>
+                  </div>
+
+                  <div
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      flexWrap: 'wrap',
+                      gap: 12,
+                      paddingTop: 12,
+                      borderTop: '1px solid var(--border)',
+                    }}
+                  >
+                    <div style={{ fontSize: 12, color: 'var(--txt3)' }}>
+                      Verify findings directly with the patient before concluding the consultation.
+                    </div>
+                    <div style={{ display: 'flex', gap: 10 }}>
+                      <button
+                        type="button"
+                        onClick={() => complete(active.appointmentId)}
+                        disabled={busy}
+                        className="btn btn-primary"
+                      >
+                        <CheckCircle2 size={15} />
+                        <span>Complete Consultation</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setConfirmAbsentId(active.appointmentId)}
+                        disabled={busy}
+                        className="btn btn-danger"
+                      >
+                        <X size={15} />
+                        <span>Mark Absent</span>
+                      </button>
                     </div>
                   </div>
                 </div>
               ) : (
-                <div className="card card-p" style={{ display: 'flex', alignItems: 'center', gap: 18 }}>
-                  <div style={{ width: 52, height: 52, background: 'var(--accent-bg)', borderRadius: 14, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--accent)', flexShrink: 0 }}><Stethoscope size={24} /></div>
-                  <div style={{ flex: 1 }}>
-                    <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 3 }}>No Active Consultation</div>
-                    <div style={{ fontSize: 13, color: 'var(--txt3)' }}>Call the next patient from the queue when ready.</div>
+                <div
+                  className="card card-p"
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    flexWrap: 'wrap',
+                    gap: 16,
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+                    <div
+                      style={{
+                        width: 44,
+                        height: 44,
+                        background: 'var(--accent-bg)',
+                        border: '1px solid var(--accent-bd)',
+                        borderRadius: 8,
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        color: 'var(--accent)',
+                        flexShrink: 0,
+                      }}
+                    >
+                      <Stethoscope size={22} />
+                    </div>
+                    <div>
+                      <div style={{ fontWeight: 700, fontSize: 15, color: 'var(--txt1)' }}>
+                        No Patient Currently in Consultation
+                      </div>
+                      <div style={{ fontSize: 13, color: 'var(--txt3)', marginTop: 2 }}>
+                        {waiting.length > 0
+                          ? `There ${waiting.length === 1 ? 'is 1 patient' : `are ${waiting.length} patients`} waiting in your prioritized queue.`
+                          : 'Your queue is currently clear.'}
+                      </div>
+                    </div>
                   </div>
-                  <button onClick={callNext} disabled={busy || waiting.length === 0} className="btn btn-primary">
-                    {busy ? 'Calling…' : <><span>Call Next</span><ArrowRight size={15} /></>}
+                  <button
+                    type="button"
+                    onClick={callNext}
+                    disabled={busy || waiting.length === 0}
+                    className="btn btn-primary btn-lg"
+                  >
+                    <Stethoscope size={16} />
+                    <span>{busy ? 'Calling patient…' : 'Call Next Patient'}</span>
+                    <ArrowRight size={15} />
                   </button>
                 </div>
               )}
 
-              {/* Next up */}
-              {waiting.slice(0, 4).length > 0 && (
-                <div className="card">
-                  <div style={{ padding: '13px 20px', borderBottom: '1px solid var(--border)', fontWeight: 700, fontSize: 14 }}>Next Up</div>
-                  {waiting.slice(0, 4).map((p, i) => (
-                    <div key={p.appointmentId} onClick={() => { setSel(p); setTab('queue') }}
-                      style={{ display: 'flex', alignItems: 'center', padding: '11px 20px', borderBottom: i < 3 ? '1px solid var(--border2)' : 'none', gap: 12, cursor: 'pointer', transition: 'background .15s' }}
-                      onMouseEnter={e => e.currentTarget.style.background='var(--surface2)'} onMouseLeave={e => e.currentTarget.style.background=''}>
-                      <span style={{ fontSize: 14, fontWeight: 800, color: 'var(--txt3)', width: 22 }}>#{i+1}</span>
-                      <div className="avatar" style={{ width: 34, height: 34, fontSize: 13 }}>{p.patientName?.charAt(0)||'P'}</div>
-                      <div style={{ flex: 1 }}>
-                        <div style={{ fontWeight: 600, fontSize: 13 }}>{p.patientName}</div>
-                        <div style={{ fontSize: 11, color: 'var(--txt3)' }}>{p.age}y · {p.tokenNumber}</div>
-                      </div>
-                      <SeverityBadge level={p.severityLevel} />
-                      <ScoreRing score={p.riskScore} size={36} />
-                      <ChevronRight size={15} color="var(--txt3)" />
+              {/* Upcoming Priority Queue Preview */}
+              <div className="card">
+                <div
+                  style={{
+                    padding: '14px 20px',
+                    borderBottom: '1px solid var(--border)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                  }}
+                >
+                  <div>
+                    <div style={{ fontWeight: 700, fontSize: 15, color: 'var(--txt1)' }}>
+                      Patients Awaiting Assessment
                     </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* ── QUEUE TAB ── */}
-          {tab === 'queue' && (
-            <div style={{ display: 'flex', gap: 18 }}>
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div className="card">
-                  <div style={{ padding: '13px 16px', borderBottom: '1px solid var(--border)', display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-                    <input className="inp" style={{ flex: 1, minWidth: 160 }} placeholder="Search name or token…" value={search} onChange={e => setSearch(e.target.value)} />
-                    <select className="inp" style={{ width: 140 }} value={sevF} onChange={e => setSevF(e.target.value)}>
-                      <option value="ALL">All Severity</option>
-                      {['CRITICAL','HIGH','MEDIUM','LOW'].map(s => <option key={s} value={s}>{s}</option>)}
-                    </select>
-                    <button className="btn btn-ghost btn-sm btn-icon" onClick={loadQueue}><RefreshCw size={14} /></button>
+                    <div style={{ fontSize: 12, color: 'var(--txt3)', marginTop: 2 }}>
+                      Ordered by clinical triage priority and arrival time
+                    </div>
                   </div>
-                  {filtered.length === 0
-                    ? <div className="empty"><div className="empty-icon"><Users size={22} color="var(--txt3)" /></div><div style={{ fontWeight: 600 }}>No patients</div></div>
-                    : filtered.map(p => (
-                      <div key={p.appointmentId} onClick={() => setSel(sel?.appointmentId === p.appointmentId ? null : p)}
-                        style={{ display: 'flex', alignItems: 'center', padding: '11px 16px', borderBottom: '1px solid var(--border2)', gap: 10, cursor: 'pointer', background: sel?.appointmentId === p.appointmentId ? 'var(--accent-bg)' : '', transition: 'background .15s' }}>
-                        <span className={`dot dot-${(p.severityLevel||'low').toLowerCase()}`} />
-                        <div className="avatar" style={{ width: 34, height: 34, fontSize: 12 }}>{p.patientName?.charAt(0)||'P'}</div>
-                        <div style={{ flex: 1, minWidth: 0 }}>
-                          <div style={{ fontWeight: 600, fontSize: 13, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.patientName}</div>
-                          <div style={{ fontSize: 11, color: 'var(--txt3)' }}>#{p.tokenNumber} · {p.age}y</div>
-                        </div>
-                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4, flexShrink: 0 }}>
-                          <SeverityBadge level={p.severityLevel} />
-                          <span style={{ fontSize: 11, color: 'var(--txt3)' }}>{p.estimatedWaitTime}m</span>
-                        </div>
-                      </div>
-                    ))
-                  }
+                  <button type="button" className="btn btn-ghost btn-sm" onClick={() => setTab('queue')}>
+                    <span>Open Full Queue</span>
+                    <ChevronRight size={14} />
+                  </button>
                 </div>
+
+                {waiting.length === 0 ? (
+                  <div className="empty">
+                    <div className="empty-icon">
+                      <Users size={20} />
+                    </div>
+                    <div style={{ fontWeight: 600, color: 'var(--txt2)' }}>No patients waiting</div>
+                    <div style={{ fontSize: 12.5 }}>New check-ins assigned to you will appear here automatically.</div>
+                  </div>
+                ) : (
+                  <div style={{ overflowX: 'auto' }}>
+                    <table className="tbl">
+                      <thead>
+                        <tr>
+                          <th>Pos</th>
+                          <th>Token</th>
+                          <th>Patient</th>
+                          <th>Presenting Complaint</th>
+                          <th>Triage Priority</th>
+                          <th>Priority Score</th>
+                          <th>Arrival</th>
+                          <th>Est. Wait</th>
+                          <th>Action</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {waiting.slice(0, 6).map(p => (
+                          <tr
+                            key={p.appointmentId}
+                            className={p.severityLevel === 'CRITICAL' ? 'row-critical' : ''}
+                            style={{ cursor: 'pointer' }}
+                            onClick={() => {
+                              setSel(p)
+                              setTab('queue')
+                            }}
+                          >
+                            <td style={{ fontWeight: 700, color: 'var(--txt2)' }}>#{p.queuePosition}</td>
+                            <td>
+                              <span
+                                style={{
+                                  fontFamily: 'monospace',
+                                  fontWeight: 800,
+                                  fontSize: 14,
+                                  color: 'var(--accent)',
+                                }}
+                              >
+                                {p.tokenNumber}
+                              </span>
+                            </td>
+                            <td>
+                              <div style={{ fontWeight: 600 }}>{p.patientName}</div>
+                              <div style={{ fontSize: 11.5, color: 'var(--txt3)' }}>
+                                {p.age}y · {p.gender}
+                              </div>
+                            </td>
+                            <td style={{ maxWidth: 260 }}>
+                              <div
+                                style={{
+                                  fontSize: 13,
+                                  color: 'var(--txt1)',
+                                  overflow: 'hidden',
+                                  textOverflow: 'ellipsis',
+                                  whiteSpace: 'nowrap',
+                                }}
+                              >
+                                {p.symptoms || p.aiDiagnosis || '—'}
+                              </div>
+                              {p.aiDiagnosis && (
+                                <div
+                                  style={{
+                                    fontSize: 11.5,
+                                    color: 'var(--txt3)',
+                                    overflow: 'hidden',
+                                    textOverflow: 'ellipsis',
+                                    whiteSpace: 'nowrap',
+                                  }}
+                                >
+                                  Support: {p.aiDiagnosis}
+                                </div>
+                              )}
+                            </td>
+                            <td>
+                              <SeverityBadge level={p.severityLevel} />
+                            </td>
+                            <td>
+                              <span style={{ fontWeight: 700, fontSize: 13 }}>
+                                {Math.round(p.priorityScore || p.riskScore || 0)}
+                              </span>
+                              <span style={{ fontSize: 11, color: 'var(--txt3)' }}>/100</span>
+                            </td>
+                            <td>
+                              <span
+                                className={`badge ${
+                                  p.geofenceStatus === 'ARRIVED'
+                                    ? 'b-low'
+                                    : p.geofenceStatus === 'OUTSIDE_RADIUS'
+                                    ? 'b-high'
+                                    : 'b-neutral'
+                                }`}
+                              >
+                                {p.geofenceStatus === 'ARRIVED'
+                                  ? 'On Site'
+                                  : p.geofenceStatus === 'OUTSIDE_RADIUS'
+                                  ? 'Away'
+                                  : 'Pending'}
+                              </span>
+                            </td>
+                            <td style={{ fontSize: 12.5, color: 'var(--txt2)' }}>{p.estimatedWaitTime}m</td>
+                            <td>
+                              <button
+                                type="button"
+                                className="btn btn-ghost btn-sm"
+                                onClick={e => {
+                                  e.stopPropagation()
+                                  setSel(p)
+                                  setTab('queue')
+                                }}
+                              >
+                                <span>Review</span>
+                                <ChevronRight size={13} />
+                              </button>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
               </div>
-
-              {/* Detail panel */}
-              {sel && (
-                <div style={{ width: 360, flexShrink: 0 }}>
-                  <div className="card card-p fade-up" style={{ position: 'sticky', top: 74, maxHeight: 'calc(100vh - 100px)', overflowY: 'auto' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-                      <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-                        <SeverityBadge level={sel.severityLevel} />
-                        {sel.urgencyFlag && <span className="badge b-critical"><AlertCircle size={10} />URGENT</span>}
-                      </div>
-                      <button className="btn btn-ghost btn-icon btn-sm" onClick={() => setSel(null)}><X size={14} /></button>
-                    </div>
-
-                    <div style={{ textAlign: 'center', marginBottom: 18 }}>
-                      <div className="avatar" style={{ width: 60, height: 60, fontSize: 24, margin: '0 auto 10px' }}>{sel.patientName?.charAt(0)||'P'}</div>
-                      <div style={{ fontSize: 19, fontWeight: 900 }}>{sel.patientName}</div>
-                      <div style={{ fontSize: 12, color: 'var(--txt3)', marginTop: 2 }}>{sel.age}y · {sel.gender}</div>
-                      <div style={{ fontSize: 15, fontWeight: 800, color: 'var(--accent)', marginTop: 6 }}>{sel.tokenNumber}</div>
-                    </div>
-
-                    {/* Scores */}
-                    <div style={{ display: 'flex', justifyContent: 'space-around', padding: '14px 0', background: 'var(--surface2)', borderRadius: 12, border: '1px solid var(--border)', marginBottom: 14 }}>
-                      <ScoreRing score={sel.riskScore} size={52} label="Risk" />
-                      <ScoreRing score={sel.priorityScore || 0} size={52} label="Priority" />
-                    </div>
-
-                    {/* ICD / Diagnosis */}
-                    {sel.aiDiagnosis && (
-                      <div style={{ marginBottom: 12, padding: '10px 12px', background: 'var(--purple-bg)', border: '1px solid var(--purple-bd)', borderRadius: 10 }}>
-                        <div style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', color: 'var(--purple)', marginBottom: 4 }}>AI Diagnosis</div>
-                        <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--txt1)' }}>{sel.aiDiagnosis}</div>
-                      </div>
-                    )}
-
-                    {sel.extractedSymptoms && (
-                      <div style={{ marginBottom: 12, padding: '10px 12px', background: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: 10 }}>
-                        <div style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', color: 'var(--txt3)', marginBottom: 6 }}>Extracted Symptoms</div>
-                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
-                          {sel.extractedSymptoms.split(',').map((s, i) => <span key={i} className="badge b-neutral" style={{ fontSize: 11 }}>{s.trim()}</span>)}
-                        </div>
-                      </div>
-                    )}
-
-                    {sel.symptoms && (
-                      <div style={{ marginBottom: 12, padding: '10px 12px', background: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: 10 }}>
-                        <div style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', color: 'var(--txt3)', marginBottom: 4 }}>Patient Description</div>
-                        <div style={{ fontSize: 13, color: 'var(--txt2)', lineHeight: 1.6 }}>{sel.symptoms}</div>
-                      </div>
-                    )}
-
-                    {sel.clinicalNotes && (
-                      <div style={{ marginBottom: 14, padding: '10px 12px', background: 'var(--blue-bg)', border: '1px solid var(--blue-bd)', borderRadius: 10, fontSize: 12, color: 'var(--blue)', lineHeight: 1.6, display: 'flex', gap: 8 }}>
-                        <Info size={14} style={{ flexShrink: 0, marginTop: 1 }} />{sel.clinicalNotes}
-                      </div>
-                    )}
-
-                    {/* Details grid */}
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 16 }}>
-                      {[
-                        { label: 'Position', val: `#${sel.queuePosition}` },
-                        { label: 'Est. Wait', val: `${sel.estimatedWaitTime}m` },
-                        { label: 'Recommended', val: sel.recommendedAction?.replace(/_/g,' ') || '—' },
-                      ].map(r => (
-                        <div key={r.label} style={{ display: 'flex', justifyContent: 'space-between', padding: '7px 10px', background: 'var(--surface2)', borderRadius: 8 }}>
-                          <span style={{ fontSize: 12, color: 'var(--txt3)' }}>{r.label}</span>
-                          <span style={{ fontSize: 12, fontWeight: 700 }}>{r.val}</span>
-                        </div>
-                      ))}
-                    </div>
-
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                      {sel.status !== 'IN_CONSULTATION' && sel.status !== 'COMPLETED' && (
-                        <button onClick={callNext} disabled={busy} className="btn btn-primary btn-full"><Stethoscope size={15} />Call to Consultation</button>
-                      )}
-                      {sel.status === 'IN_CONSULTATION' && (
-                        <>
-                          <button onClick={() => complete(sel.appointmentId)} className="btn btn-success btn-full"><CheckCircle2 size={15} />Complete</button>
-                          <button onClick={() => markAbsent(sel.appointmentId)} className="btn btn-danger btn-full"><X size={15} />Mark Absent</button>
-                        </>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              )}
             </div>
           )}
-          {/* ── Patient History ── */}
-          {tab === 'history' && (
-            <div style={{ display: 'flex', gap: 18 }}>
-              <div style={{ flex: 1, minWidth: 0 }}>
+
+          {/* ── PATIENT QUEUE TAB ── */}
+          {tab === 'queue' && (
+            <div className="split-view">
+              <div className="split-main">
                 <div className="card">
-                  <div style={{ padding: '13px 16px', borderBottom: '1px solid var(--border)', display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-                    <input className="inp" style={{ flex: 1, minWidth: 160 }} placeholder="Search patient or token..." value={histSearch} onChange={e => setHistSearch(e.target.value)} />
-                    <select className="inp" style={{ width: 140 }} value={histSevFilter} onChange={e => setHistSevFilter(e.target.value)}>
-                      <option value="ALL">All Severity</option>
-                      {['CRITICAL','HIGH','MEDIUM','LOW'].map(s => <option key={s} value={s}>{s}</option>)}
+                  {/* Search, Filter & Sort Bar */}
+                  <div
+                    style={{
+                      padding: '14px 16px',
+                      borderBottom: '1px solid var(--border)',
+                      display: 'flex',
+                      gap: 10,
+                      flexWrap: 'wrap',
+                      alignItems: 'center',
+                    }}
+                  >
+                    <input
+                      className="inp"
+                      style={{ flex: 1, minWidth: 200 }}
+                      placeholder="Search by patient name, token, or complaint…"
+                      value={search}
+                      onChange={e => setSearch(e.target.value)}
+                      aria-label="Search patient queue"
+                    />
+                    <select
+                      className="inp"
+                      style={{ width: 165 }}
+                      value={sevF}
+                      onChange={e => setSevF(e.target.value)}
+                      aria-label="Filter by triage priority"
+                    >
+                      <option value="ALL">All Priority Levels</option>
+                      <option value="CRITICAL">Critical Priority</option>
+                      <option value="HIGH">High Priority</option>
+                      <option value="MEDIUM">Moderate Priority</option>
+                      <option value="LOW">Low Priority</option>
                     </select>
-                    <select className="inp" style={{ width: 140 }} value={histStatusFilter} onChange={e => setHistStatusFilter(e.target.value)}>
-                      <option value="ALL">All Status</option>
-                      {['COMPLETED','ABSENT','WAITING','IN_CONSULTATION','CANCELLED'].map(s => <option key={s} value={s}>{s}</option>)}
+                    <select
+                      className="inp"
+                      style={{ width: 165 }}
+                      value={sortBy}
+                      onChange={e => setSortBy(e.target.value)}
+                      aria-label="Sort queue by"
+                    >
+                      <option value="position">Sort: Queue Order</option>
+                      <option value="priority">Sort: Priority Score</option>
+                      <option value="wait">Sort: Wait Duration</option>
                     </select>
-                    <button className="btn btn-ghost btn-sm btn-icon" onClick={loadHistory}><RefreshCw size={14} /></button>
                   </div>
-                  {history.filter(p => {
-                    const matchesSearch = !histSearch || p.patientName?.toLowerCase().includes(histSearch.toLowerCase()) || p.tokenNumber?.toLowerCase().includes(histSearch.toLowerCase());
-                    const matchesSev = histSevFilter === 'ALL' || p.severityLevel === histSevFilter;
-                    const matchesStatus = histStatusFilter === 'ALL' || p.status === histStatusFilter;
-                    return matchesSearch && matchesSev && matchesStatus;
-                  }).length === 0 ? (
-                    <div className="empty"><div className="empty-icon"><Users size={22} color="var(--txt3)" /></div><div style={{ fontWeight: 600 }}>No history records found</div></div>
+
+                  {filteredQueue.length === 0 ? (
+                    <div className="empty">
+                      <div className="empty-icon">
+                        <Users size={22} />
+                      </div>
+                      <div style={{ fontWeight: 600, color: 'var(--txt2)' }}>No matching patients in queue</div>
+                      <div style={{ fontSize: 12.5 }}>
+                        {search || sevF !== 'ALL'
+                          ? 'Try clearing your search or priority filter.'
+                          : 'There are currently no patients waiting in your queue.'}
+                      </div>
+                    </div>
                   ) : (
                     <div style={{ overflowX: 'auto' }}>
                       <table className="tbl">
                         <thead>
                           <tr>
+                            <th>Pos</th>
                             <th>Token</th>
                             <th>Patient</th>
-                            <th>Severity</th>
-                            <th>Risk</th>
-                            <th>AI Diagnosis</th>
-                            <th>Status</th>
-                            <th>Booking Time</th>
+                            <th>Presenting Complaint</th>
+                            <th>Triage Priority</th>
+                            <th>Arrival</th>
+                            <th>Est. Wait</th>
                           </tr>
                         </thead>
                         <tbody>
-                          {history.filter(p => {
-                            const matchesSearch = !histSearch || p.patientName?.toLowerCase().includes(histSearch.toLowerCase()) || p.tokenNumber?.toLowerCase().includes(histSearch.toLowerCase());
-                            const matchesSev = histSevFilter === 'ALL' || p.severityLevel === histSevFilter;
-                            const matchesStatus = histStatusFilter === 'ALL' || p.status === histStatusFilter;
-                            return matchesSearch && matchesSev && matchesStatus;
-                          }).map(p => (
-                            <tr key={p.appointmentId} onClick={() => setHistSel(histSel?.appointmentId === p.appointmentId ? null : p)} style={{ cursor: 'pointer', background: histSel?.appointmentId === p.appointmentId ? 'var(--accent-bg)' : '' }}>
-                              <td><span style={{ fontWeight: 800, fontFamily: 'monospace', fontSize: 14, color: 'var(--accent)' }}>{p.tokenNumber}</span></td>
-                              <td>
-                                <div style={{ fontWeight: 600 }}>{p.patientName}</div>
-                                <div style={{ fontSize: 11, color: 'var(--txt3)' }}>{p.age}y · {p.gender}</div>
-                              </td>
-                              <td><SeverityBadge level={p.severityLevel} /></td>
-                              <td><ScoreRing score={p.riskScore} size={36} /></td>
-                              <td style={{ fontSize: 11, color: 'var(--txt2)', maxWidth: 180 }}><div style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.aiDiagnosis || '—'}</div></td>
-                              <td><span className={`badge ${p.status === 'COMPLETED' ? 'b-low' : p.status === 'ABSENT' ? 'b-critical' : 'b-neutral'}`}>{p.status}</span></td>
-                              <td style={{ fontSize: 11, color: 'var(--txt3)' }}>{p.bookingTime ? new Date(p.bookingTime).toLocaleString() : '—'}</td>
-                            </tr>
-                          ))}
+                          {filteredQueue.map(p => {
+                            const isSelected = sel?.appointmentId === p.appointmentId
+                            return (
+                              <tr
+                                key={p.appointmentId}
+                                onClick={() => setSel(isSelected ? null : p)}
+                                className={`${isSelected ? 'row-selected' : ''} ${
+                                  p.severityLevel === 'CRITICAL' ? 'row-critical' : ''
+                                }`}
+                                style={{ cursor: 'pointer' }}
+                              >
+                                <td style={{ fontWeight: 700, color: 'var(--txt2)' }}>#{p.queuePosition}</td>
+                                <td>
+                                  <span
+                                    style={{
+                                      fontFamily: 'monospace',
+                                      fontWeight: 800,
+                                      fontSize: 14,
+                                      color: 'var(--accent)',
+                                    }}
+                                  >
+                                    {p.tokenNumber}
+                                  </span>
+                                </td>
+                                <td>
+                                  <div style={{ fontWeight: 600 }}>{p.patientName}</div>
+                                  <div style={{ fontSize: 11.5, color: 'var(--txt3)' }}>
+                                    {p.age}y · {p.gender}
+                                  </div>
+                                </td>
+                                <td style={{ maxWidth: 240 }}>
+                                  <div
+                                    style={{
+                                      fontSize: 13,
+                                      color: 'var(--txt1)',
+                                      overflow: 'hidden',
+                                      textOverflow: 'ellipsis',
+                                      whiteSpace: 'nowrap',
+                                    }}
+                                  >
+                                    {p.symptoms || '—'}
+                                  </div>
+                                  {p.aiDiagnosis && (
+                                    <div
+                                      style={{
+                                        fontSize: 11.5,
+                                        color: 'var(--txt3)',
+                                        overflow: 'hidden',
+                                        textOverflow: 'ellipsis',
+                                        whiteSpace: 'nowrap',
+                                      }}
+                                    >
+                                      {p.aiDiagnosis}
+                                    </div>
+                                  )}
+                                </td>
+                                <td>
+                                  <SeverityBadge level={p.severityLevel} />
+                                </td>
+                                <td>
+                                  <span
+                                    className={`badge ${
+                                      p.geofenceStatus === 'ARRIVED'
+                                        ? 'b-low'
+                                        : p.geofenceStatus === 'OUTSIDE_RADIUS'
+                                        ? 'b-high'
+                                        : 'b-neutral'
+                                    }`}
+                                  >
+                                    {p.geofenceStatus === 'ARRIVED'
+                                      ? 'On Site'
+                                      : p.geofenceStatus === 'OUTSIDE_RADIUS'
+                                      ? 'Outside Zone'
+                                      : 'Pending'}
+                                  </span>
+                                </td>
+                                <td style={{ fontSize: 12.5, color: 'var(--txt2)' }}>{p.estimatedWaitTime}m</td>
+                              </tr>
+                            )
+                          })}
                         </tbody>
                       </table>
                     </div>
@@ -432,119 +994,588 @@ export default function DoctorDashboard() {
                 </div>
               </div>
 
-              {/* Side Drawer Detail Panel for Doctor History */}
-              {histSel && (
-                <div style={{ width: 360, flexShrink: 0 }}>
-                  <div className="card card-p fade-up" style={{ position: 'sticky', top: 74, maxHeight: 'calc(100vh - 100px)', overflowY: 'auto' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-                      <div style={{ display: 'flex', gap: 6 }}>
-                        <SeverityBadge level={histSel.severityLevel} />
-                        {histSel.urgencyFlag && <span className="badge b-critical"><AlertCircle size={10} />URGENT</span>}
-                      </div>
-                      <button className="btn btn-ghost btn-icon btn-sm" onClick={() => setHistSel(null)}><X size={14} /></button>
-                    </div>
-
-                    <div style={{ textAlign: 'center', marginBottom: 18 }}>
-                      <div className="avatar" style={{ width: 60, height: 60, fontSize: 24, margin: '0 auto 10px' }}>{histSel.patientName?.charAt(0)||'P'}</div>
-                      <div style={{ fontSize: 19, fontWeight: 900 }}>{histSel.patientName}</div>
-                      <div style={{ fontSize: 12, color: 'var(--txt3)', marginTop: 2 }}>{histSel.age}y · {histSel.gender}</div>
-                      <div style={{ fontSize: 15, fontWeight: 800, color: 'var(--accent)', marginTop: 6 }}>{histSel.tokenNumber}</div>
-                    </div>
-
-                    <div style={{ display: 'flex', justifyContent: 'space-around', padding: '14px 0', background: 'var(--surface2)', borderRadius: 12, border: '1px solid var(--border)', marginBottom: 14 }}>
-                      <ScoreRing score={histSel.riskScore} size={52} label="Risk" />
-                      <ScoreRing score={histSel.priorityScore || 0} size={52} label="Priority" />
-                    </div>
-
-                    {histSel.aiDiagnosis && (
-                      <div style={{ marginBottom: 12, padding: '10px 12px', background: 'var(--purple-bg)', border: '1px solid var(--purple-bd)', borderRadius: 10 }}>
-                        <div style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', color: 'var(--purple)', marginBottom: 4 }}>AI Diagnosis</div>
-                        <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--txt1)' }}>{histSel.aiDiagnosis}</div>
-                      </div>
-                    )}
-
-                    {histSel.icdCodes && histSel.icdCodes.length > 0 && (
-                      <div style={{ marginBottom: 12, padding: '10px 12px', background: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: 10 }}>
-                        <div style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', color: 'var(--txt3)', marginBottom: 6 }}>ICD-10 Mapping</div>
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                          {histSel.icdCodes.map((c, idx) => (
-                            <div key={idx} style={{ fontSize: 12 }}>
-                              <strong style={{ color: 'var(--accent)' }}>{c.code}</strong>: {c.description}
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-
-                    {histSel.symptoms && (
-                      <div style={{ marginBottom: 12, padding: '10px 12px', background: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: 10 }}>
-                        <div style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', color: 'var(--txt3)', marginBottom: 4 }}>Symptoms Description</div>
-                        <div style={{ fontSize: 13, color: 'var(--txt2)', lineHeight: 1.6 }}>{histSel.symptoms}</div>
-                      </div>
-                    )}
-
-                    {histSel.clinicalNotes && (
-                      <div style={{ marginBottom: 14, padding: '10px 12px', background: 'var(--blue-bg)', border: '1px solid var(--blue-bd)', borderRadius: 10, fontSize: 12, color: 'var(--blue)', lineHeight: 1.6 }}>
-                        <div style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', color: 'var(--blue)', marginBottom: 4 }}>Clinical Notes</div>
-                        {histSel.clinicalNotes}
-                      </div>
-                    )}
-
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                      {[
-                        { label: 'Status', val: histSel.status },
-                        { label: 'Geofence Status', val: histSel.geofenceStatus || '—' },
-                        { label: 'Booking Time', val: histSel.bookingTime ? new Date(histSel.bookingTime).toLocaleString() : '—' },
-                      ].map(r => (
-                        <div key={r.label} style={{ display: 'flex', justifyContent: 'space-between', padding: '7px 10px', background: 'var(--surface2)', borderRadius: 8 }}>
-                          <span style={{ fontSize: 12, color: 'var(--txt3)' }}>{r.label}</span>
-                          <span style={{ fontSize: 12, fontWeight: 700 }}>{r.val}</span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
+              {/* Structured Patient Clinical View Panel */}
+              {sel && (
+                <div className="split-side">
+                  <ClinicalRecordPanel
+                    record={sel}
+                    onClose={() => setSel(null)}
+                    onCallNext={callNext}
+                    onComplete={() => complete(sel.appointmentId)}
+                    onRequestAbsent={() => setConfirmAbsentId(sel.appointmentId)}
+                    busy={busy}
+                  />
                 </div>
               )}
             </div>
           )}
 
-          {/* ── PROFILE ── */}
+          {/* ── CONSULTATION HISTORY TAB ── */}
+          {tab === 'history' && (
+            <div className="split-view">
+              <div className="split-main">
+                <div className="card">
+                  <div
+                    style={{
+                      padding: '14px 16px',
+                      borderBottom: '1px solid var(--border)',
+                      display: 'flex',
+                      gap: 10,
+                      flexWrap: 'wrap',
+                    }}
+                  >
+                    <input
+                      className="inp"
+                      style={{ flex: 1, minWidth: 180 }}
+                      placeholder="Search patient name, token, or assessment…"
+                      value={histSearch}
+                      onChange={e => setHistSearch(e.target.value)}
+                      aria-label="Search consultation history"
+                    />
+                    <select
+                      className="inp"
+                      style={{ width: 155 }}
+                      value={histSevFilter}
+                      onChange={e => setHistSevFilter(e.target.value)}
+                      aria-label="Filter history by priority"
+                    >
+                      <option value="ALL">All Priority Levels</option>
+                      <option value="CRITICAL">Critical</option>
+                      <option value="HIGH">High</option>
+                      <option value="MEDIUM">Moderate</option>
+                      <option value="LOW">Low</option>
+                    </select>
+                    <select
+                      className="inp"
+                      style={{ width: 155 }}
+                      value={histStatusFilter}
+                      onChange={e => setHistStatusFilter(e.target.value)}
+                      aria-label="Filter history by status"
+                    >
+                      <option value="ALL">All Statuses</option>
+                      <option value="COMPLETED">Completed</option>
+                      <option value="IN_CONSULTATION">In Consultation</option>
+                      <option value="WAITING">Waiting</option>
+                      <option value="ABSENT">Absent</option>
+                    </select>
+                  </div>
+
+                  {filteredHistory.length === 0 ? (
+                    <div className="empty">
+                      <div className="empty-icon">
+                        <FileText size={22} />
+                      </div>
+                      <div style={{ fontWeight: 600, color: 'var(--txt2)' }}>No consultation records found</div>
+                      <div style={{ fontSize: 12.5 }}>
+                        Completed consultations and historical patient records will appear here.
+                      </div>
+                    </div>
+                  ) : (
+                    <div style={{ overflowX: 'auto' }}>
+                      <table className="tbl">
+                        <thead>
+                          <tr>
+                            <th>Token</th>
+                            <th>Patient</th>
+                            <th>Priority</th>
+                            <th>Risk Score</th>
+                            <th>Preliminary Assessment</th>
+                            <th>Status</th>
+                            <th>Date &amp; Time</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {filteredHistory.map(p => {
+                            const isSelected = histSel?.appointmentId === p.appointmentId
+                            return (
+                              <tr
+                                key={p.appointmentId}
+                                onClick={() => setHistSel(isSelected ? null : p)}
+                                className={isSelected ? 'row-selected' : ''}
+                                style={{ cursor: 'pointer' }}
+                              >
+                                <td>
+                                  <span
+                                    style={{
+                                      fontWeight: 800,
+                                      fontFamily: 'monospace',
+                                      fontSize: 13.5,
+                                      color: 'var(--accent)',
+                                    }}
+                                  >
+                                    {p.tokenNumber}
+                                  </span>
+                                </td>
+                                <td>
+                                  <div style={{ fontWeight: 600 }}>{p.patientName}</div>
+                                  <div style={{ fontSize: 11.5, color: 'var(--txt3)' }}>
+                                    {p.age}y · {p.gender}
+                                  </div>
+                                </td>
+                                <td>
+                                  <SeverityBadge level={p.severityLevel} />
+                                </td>
+                                <td>
+                                  <span style={{ fontWeight: 700 }}>{Math.round(p.riskScore || 0)}</span>
+                                  <span style={{ fontSize: 11, color: 'var(--txt3)' }}>/100</span>
+                                </td>
+                                <td style={{ fontSize: 12.5, color: 'var(--txt2)', maxWidth: 200 }}>
+                                  <div style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                    {p.aiDiagnosis || '—'}
+                                  </div>
+                                </td>
+                                <td>
+                                  <span
+                                    className={`badge ${
+                                      p.status === 'COMPLETED'
+                                        ? 'b-low'
+                                        : p.status === 'ABSENT'
+                                        ? 'b-critical'
+                                        : 'b-neutral'
+                                    }`}
+                                  >
+                                    {p.status}
+                                  </span>
+                                </td>
+                                <td style={{ fontSize: 12, color: 'var(--txt3)' }}>
+                                  {p.bookingTime ? new Date(p.bookingTime).toLocaleString() : '—'}
+                                </td>
+                              </tr>
+                            )
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {histSel && (
+                <div className="split-side">
+                  <ClinicalRecordPanel
+                    record={histSel}
+                    onClose={() => setHistSel(null)}
+                    isHistory
+                  />
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* ── PROFILE TAB ── */}
           {tab === 'profile' && (
-            <div style={{ maxWidth: 520 }}>
+            <div style={{ maxWidth: 560 }}>
               <form onSubmit={saveProfile} className="card card-p" style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-                <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 4 }}>My Profile</div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+                <div>
+                  <div style={{ fontWeight: 700, fontSize: 16, color: 'var(--txt1)' }}>Clinician Profile</div>
+                  <div style={{ fontSize: 12.5, color: 'var(--txt3)', marginTop: 2 }}>
+                    Update your professional details and consultation availability.
+                  </div>
+                </div>
+
+                <div
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 16,
+                    padding: '14px',
+                    background: 'var(--surface2)',
+                    border: '1px solid var(--border)',
+                    borderRadius: 8,
+                  }}
+                >
                   <div style={{ position: 'relative' }}>
-                    {pPhoto ? <img src={pPhoto} style={{ width: 72, height: 72, borderRadius: '50%', objectFit: 'cover', border: '3px solid var(--accent)' }} alt="" />
-                      : <div className="avatar" style={{ width: 72, height: 72, fontSize: 28, border: '3px solid var(--border)' }}>{doc?.name?.charAt(0)||'D'}</div>}
-                    <button type="button" onClick={() => fileRef.current?.click()}
-                      style={{ position: 'absolute', bottom: 0, right: 0, width: 24, height: 24, background: 'var(--accent)', border: '2px solid white', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
+                    {pPhoto ? (
+                      <img
+                        src={pPhoto}
+                        style={{
+                          width: 68,
+                          height: 68,
+                          borderRadius: '50%',
+                          objectFit: 'cover',
+                          border: '2px solid var(--accent)',
+                        }}
+                        alt=""
+                      />
+                    ) : (
+                      <div className="avatar" style={{ width: 68, height: 68, fontSize: 24 }}>
+                        {doc?.name?.charAt(0) || 'D'}
+                      </div>
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => fileRef.current?.click()}
+                      aria-label="Upload profile photo"
+                      style={{
+                        position: 'absolute',
+                        bottom: 0,
+                        right: 0,
+                        width: 24,
+                        height: 24,
+                        background: 'var(--accent)',
+                        border: '2px solid var(--surface)',
+                        borderRadius: '50%',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        cursor: 'pointer',
+                      }}
+                    >
                       <Camera size={12} color="white" />
                     </button>
                     <input ref={fileRef} type="file" accept="image/*" onChange={onPhoto} style={{ display: 'none' }} />
                   </div>
                   <div>
-                    <div style={{ fontWeight: 700, fontSize: 16 }}>{doc?.name}</div>
-                    <div style={{ fontSize: 13, color: 'var(--txt3)', marginTop: 2 }}>{doc?.doctorId}</div>
-                    <div style={{ fontSize: 13, color: 'var(--txt2)' }}>{doc?.specialization}</div>
+                    <div style={{ fontWeight: 700, fontSize: 16, color: 'var(--txt1)' }}>{doc?.name}</div>
+                    <div style={{ fontSize: 12.5, color: 'var(--txt2)', marginTop: 2 }}>{doc?.specialization}</div>
+                    <div style={{ fontSize: 12, color: 'var(--txt3)', marginTop: 2 }}>
+                      Clinician ID: <strong>{doc?.doctorId}</strong> · {doc?.email}
+                    </div>
                   </div>
                 </div>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
-                  <div><label className="lbl">Full Name</label><input className="inp" value={pName} onChange={e => setPName(e.target.value)} /></div>
-                  <div><label className="lbl">Specialization</label><input className="inp" value={pSpec} onChange={e => setPSpec(e.target.value)} /></div>
-                  <div><label className="lbl">Experience (years)</label><input className="inp" type="number" min={0} value={pExp} onChange={e => setPExp(e.target.value)} /></div>
-                  <div><label className="lbl">New Password</label><input className="inp" type="password" value={pPwd} onChange={e => setPPwd(e.target.value)} placeholder="Leave blank to keep" /></div>
+
+                <div className="grid-2">
+                  <div>
+                    <label className="lbl" htmlFor="doc-name">
+                      Full Name
+                    </label>
+                    <input id="doc-name" className="inp" value={pName} onChange={e => setPName(e.target.value)} />
+                  </div>
+                  <div>
+                    <label className="lbl" htmlFor="doc-spec">
+                      Clinical Specialization
+                    </label>
+                    <input id="doc-spec" className="inp" value={pSpec} onChange={e => setPSpec(e.target.value)} />
+                  </div>
+                  <div>
+                    <label className="lbl" htmlFor="doc-exp">
+                      Years of Experience
+                    </label>
+                    <input
+                      id="doc-exp"
+                      className="inp"
+                      type="number"
+                      min={0}
+                      value={pExp}
+                      onChange={e => setPExp(e.target.value)}
+                    />
+                  </div>
+                  <div>
+                    <label className="lbl" htmlFor="doc-pwd">
+                      New Password (Optional)
+                    </label>
+                    <input
+                      id="doc-pwd"
+                      className="inp"
+                      type="password"
+                      value={pPwd}
+                      onChange={e => setPPwd(e.target.value)}
+                      placeholder="Leave blank to keep current"
+                    />
+                  </div>
                 </div>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 14px', background: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: 10 }}>
-                  <div><div style={{ fontSize: 13, fontWeight: 600 }}>Availability</div><div style={{ fontSize: 12, color: 'var(--txt3)' }}>Toggle to accept or pause patients</div></div>
-                  <button type="button" onClick={toggleAvail} className={`btn btn-sm ${avail === 'AVAILABLE' ? 'btn-success' : 'btn-ghost'}`}>{avail === 'AVAILABLE' ? '● Available' : '○ Unavailable'}</button>
+
+                <div
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    padding: '12px 14px',
+                    background: 'var(--surface2)',
+                    border: '1px solid var(--border)',
+                    borderRadius: 8,
+                  }}
+                >
+                  <div>
+                    <div style={{ fontSize: 13.5, fontWeight: 600, color: 'var(--txt1)' }}>Queue Availability</div>
+                    <div style={{ fontSize: 12, color: 'var(--txt3)' }}>
+                      Setting status to Unavailable redistributes waiting patients to other active clinicians.
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={toggleAvail}
+                    className={`btn btn-sm ${avail === 'AVAILABLE' ? 'btn-success' : 'btn-ghost'}`}
+                  >
+                    {avail === 'AVAILABLE' ? 'Available' : 'Unavailable'}
+                  </button>
                 </div>
-                <button type="submit" disabled={busy} className="btn btn-primary">{busy ? 'Saving…' : 'Save Profile'}</button>
+
+                <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+                  <button type="submit" disabled={busy} className="btn btn-primary">
+                    {busy ? 'Saving changes…' : 'Save Profile Changes'}
+                  </button>
+                </div>
               </form>
             </div>
           )}
         </div>
       </div>
+
+      {/* Confirmation Modal for Marking Patient Absent */}
+      {confirmAbsentId && (
+        <div className="modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="absent-modal-title">
+          <div className="modal-card">
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>
+              <AlertCircle size={20} color="var(--red)" />
+              <div id="absent-modal-title" style={{ fontWeight: 700, fontSize: 15.5, color: 'var(--txt1)' }}>
+                Confirm Patient Absence
+              </div>
+            </div>
+            <p style={{ fontSize: 13, color: 'var(--txt2)', lineHeight: 1.5, margin: '0 0 18px' }}>
+              Are you sure you want to mark this patient as <strong>Absent</strong>? This will remove them from the active consultation queue.
+            </p>
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+              <button
+                type="button"
+                className="btn btn-ghost btn-sm"
+                onClick={() => setConfirmAbsentId(null)}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                className="btn btn-danger btn-sm"
+                disabled={busy}
+                onClick={() => markAbsent(confirmAbsentId)}
+              >
+                Confirm Absent
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+function ClinicalRecordPanel({ record, onClose, onCallNext, onComplete, onRequestAbsent, busy, isHistory = false }) {
+  return (
+    <div
+      className="card card-p fade-up"
+      style={{
+        position: 'sticky',
+        top: 72,
+        maxHeight: 'calc(100vh - 96px)',
+        overflowY: 'auto',
+        display: 'flex',
+        flexDirection: 'column',
+        gap: 14,
+      }}
+    >
+      {/* Header */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 8 }}>
+        <div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+            <span
+              style={{
+                fontFamily: 'monospace',
+                fontWeight: 800,
+                fontSize: 15,
+                color: 'var(--accent)',
+              }}
+            >
+              {record.tokenNumber}
+            </span>
+            <SeverityBadge level={record.severityLevel} verbose />
+            {record.urgencyFlag && <span className="badge b-critical">Urgent</span>}
+          </div>
+          <div style={{ fontSize: 17, fontWeight: 800, color: 'var(--txt1)', marginTop: 6 }}>
+            {record.patientName}
+          </div>
+          <div style={{ fontSize: 12.5, color: 'var(--txt3)', marginTop: 2 }}>
+            {record.age} years · {record.gender} · Status: <strong>{record.status}</strong>
+          </div>
+        </div>
+        <button
+          type="button"
+          className="btn btn-ghost btn-icon btn-sm"
+          onClick={onClose}
+          aria-label="Close clinical record panel"
+        >
+          <X size={14} />
+        </button>
+      </div>
+
+      {/* Section 1: Patient-Reported Information */}
+      <div className="clinical-sec">
+        <div className="clinical-sec-header">
+          <span>Patient-Reported Information</span>
+        </div>
+        <div style={{ fontSize: 13, color: 'var(--txt1)', lineHeight: 1.55 }}>
+          {record.symptoms || 'No symptom description provided.'}
+        </div>
+        {record.extractedSymptoms && (
+          <div style={{ marginTop: 10 }}>
+            <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--txt3)', marginBottom: 4 }}>
+              Extracted Symptom Keywords:
+            </div>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
+              {record.extractedSymptoms.split(',').map((s, i) => (
+                <span key={i} className="badge b-neutral" style={{ fontSize: 11 }}>
+                  {s.trim()}
+                </span>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Section 2: System-Generated Triage Support */}
+      <div className="clinical-sec ai-support">
+        <div className="clinical-sec-header">
+          <span>System Triage Support</span>
+          <span style={{ fontWeight: 500, textTransform: 'none' }}>Decision Support</span>
+        </div>
+
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 16,
+            paddingBottom: 10,
+            marginBottom: 10,
+            borderBottom: '1px solid var(--accent-bd)',
+          }}
+        >
+          <ScoreRing score={record.riskScore} size={46} label="Risk" />
+          <ScoreRing score={record.priorityScore || 0} size={46} label="Priority" />
+          <div style={{ flex: 1 }}>
+            <div style={{ fontSize: 11, color: 'var(--txt3)', fontWeight: 600 }}>Preliminary Classification</div>
+            <div style={{ fontSize: 13.5, fontWeight: 700, color: 'var(--txt1)', marginTop: 2 }}>
+              {record.aiDiagnosis || 'Pending clinician evaluation'}
+            </div>
+          </div>
+        </div>
+
+        {record.icdCodes && record.icdCodes.length > 0 && (
+          <div style={{ marginBottom: 10 }}>
+            <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--txt3)', marginBottom: 5 }}>
+              Candidate ICD-10 Codes:
+            </div>
+            <IcdCards icdCodes={record.icdCodes} />
+          </div>
+        )}
+
+        {record.recommendedAction && (
+          <div style={{ fontSize: 12.5, color: 'var(--txt1)', marginBottom: 6 }}>
+            <strong>Suggested Workflow Action:</strong> {record.recommendedAction.replace(/_/g, ' ')}
+          </div>
+        )}
+
+        {record.clinicalNotes && (
+          <div style={{ fontSize: 12.5, color: 'var(--txt2)', lineHeight: 1.5 }}>
+            <strong>Rationale / Clinical Notes:</strong> {record.clinicalNotes}
+          </div>
+        )}
+      </div>
+
+      {/* Section 3: Queue & Operational Metadata */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+        {!isHistory && (
+          <>
+            <div
+              style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                padding: '7px 10px',
+                background: 'var(--surface2)',
+                borderRadius: 6,
+                fontSize: 12.5,
+              }}
+            >
+              <span style={{ color: 'var(--txt3)' }}>Queue Position</span>
+              <strong>#{record.queuePosition}</strong>
+            </div>
+            <div
+              style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                padding: '7px 10px',
+                background: 'var(--surface2)',
+                borderRadius: 6,
+                fontSize: 12.5,
+              }}
+            >
+              <span style={{ color: 'var(--txt3)' }}>Estimated Wait</span>
+              <strong>{record.estimatedWaitTime} min</strong>
+            </div>
+          </>
+        )}
+        <div
+          style={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            padding: '7px 10px',
+            background: 'var(--surface2)',
+            borderRadius: 6,
+            fontSize: 12.5,
+          }}
+        >
+          <span style={{ color: 'var(--txt3)' }}>Clinic Arrival (Geofence)</span>
+          <strong>{record.geofenceStatus || '—'}</strong>
+        </div>
+        {record.bookingTime && (
+          <div
+            style={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              padding: '7px 10px',
+              background: 'var(--surface2)',
+              borderRadius: 6,
+              fontSize: 12.5,
+            }}
+          >
+            <span style={{ color: 'var(--txt3)' }}>Check-In Time</span>
+            <strong>{new Date(record.bookingTime).toLocaleString()}</strong>
+          </div>
+        )}
+      </div>
+
+      <div className="clinical-disclaimer">
+        System-generated triage scores and ICD-10 mappings are provided for prioritization support only and must be verified by the examining clinician.
+      </div>
+
+      {/* Workflow Actions */}
+      {!isHistory && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 4 }}>
+          {record.status !== 'IN_CONSULTATION' && record.status !== 'COMPLETED' && (
+            <button
+              type="button"
+              onClick={onCallNext}
+              disabled={busy}
+              className="btn btn-primary btn-full"
+            >
+              <Stethoscope size={15} />
+              <span>Call Next Patient to Consultation</span>
+            </button>
+          )}
+          {record.status === 'IN_CONSULTATION' && (
+            <div style={{ display: 'flex', gap: 8 }}>
+              <button
+                type="button"
+                onClick={onComplete}
+                disabled={busy}
+                className="btn btn-primary"
+                style={{ flex: 1 }}
+              >
+                <CheckCircle2 size={15} />
+                <span>Complete</span>
+              </button>
+              <button
+                type="button"
+                onClick={onRequestAbsent}
+                disabled={busy}
+                className="btn btn-danger"
+                style={{ flex: 1 }}
+              >
+                <X size={15} />
+                <span>Mark Absent</span>
+              </button>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   )
 }

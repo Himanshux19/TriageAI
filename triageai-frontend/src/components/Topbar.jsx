@@ -5,15 +5,41 @@ import { useTheme } from '../context/ThemeContext'
 export default function Topbar({ title, subtitle, onToggleSidebar, onRefresh, extra }) {
   const { theme, toggleTheme } = useTheme()
   return (
-    <div className="topbar">
-      <button className="btn btn-ghost btn-icon" onClick={onToggleSidebar}><Menu size={17} /></button>
-      <div style={{ flex: 1 }}>
-        <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--txt1)', lineHeight: 1 }}>{title}</div>
-        {subtitle && <div style={{ fontSize: 11, color: 'var(--txt3)', marginTop: 2 }}>{subtitle}</div>}
+    <header className="topbar">
+      <button
+        type="button"
+        className="btn btn-ghost btn-icon"
+        onClick={onToggleSidebar}
+        aria-label="Toggle navigation menu"
+        title="Toggle navigation"
+      >
+        <Menu size={17} />
+      </button>
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div className="topbar-title">{title}</div>
+        {subtitle && <div className="topbar-sub">{subtitle}</div>}
       </div>
       {extra}
-      {onRefresh && <button className="btn btn-ghost btn-icon" onClick={onRefresh} title="Refresh"><RefreshCw size={15} /></button>}
-      <button className="btn btn-ghost btn-icon" onClick={toggleTheme}>{theme === 'light' ? <Moon size={15} /> : <Sun size={15} />}</button>
-    </div>
+      {onRefresh && (
+        <button
+          type="button"
+          className="btn btn-ghost btn-icon"
+          onClick={onRefresh}
+          title="Refresh data"
+          aria-label="Refresh data"
+        >
+          <RefreshCw size={15} />
+        </button>
+      )}
+      <button
+        type="button"
+        className="btn btn-ghost btn-icon"
+        onClick={toggleTheme}
+        title={theme === 'light' ? 'Switch to dark mode' : 'Switch to light mode'}
+        aria-label="Toggle color theme"
+      >
+        {theme === 'light' ? <Moon size={15} /> : <Sun size={15} />}
+      </button>
+    </header>
   )
 }
